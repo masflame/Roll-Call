@@ -17,7 +17,9 @@ interface SessionConfig {
   isActive: boolean;
 }
 
-const submitUrl = import.meta.env.VITE_SUBMIT_ATTENDANCE_URL;
+// Prefer environment override; fallback to known Cloud Functions URL so deployments
+// without the env var still submit correctly.
+const submitUrl = import.meta.env.VITE_SUBMIT_ATTENDANCE_URL || "https://us-central1-roll-call-14e2f.cloudfunctions.net/submitAttendance";
 
 function ScanForm() {
   const { sessionId } = useParams<{ sessionId: string }>();
