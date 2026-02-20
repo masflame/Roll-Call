@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "qr-attendance-functions": "file:.."
+  }
+}

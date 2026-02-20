@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    match /lecturers/{uid} {
+      allow read, write: if isAuthed() && request.auth.uid == uid;
+    }
+
+    match /modules/{moduleId} {
+      allow create: if isAuthed() && request.resource.data.lecturerId == request.auth.uid;
+      allow read, update, delete: if isAuthed() && resource.data.lecturerId == request.auth.uid;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if resource.data.isActive == true;
+      allow create: if isAuthed() && request.resource.data.lecturerId == request.auth.uid;
+      allow update, delete: if isAuthed() && resource.data.lecturerId == request.auth.uid;
+
+      match /attendance/{attendanceId} {
+        allow read: if isAuthed() &&
+          get(/databases/$(database)/documents/sessions/$(sessionId)).data.lecturerId == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /sessionsPrivate/{sessionId} {
+      allow read, write: if isAuthed() &&
+        get(/databases/$(database)/documents/sessions/$(sessionId)).data.lecturerId == request.auth.uid;
+    }
+
+    match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
+  }
+}
