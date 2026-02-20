@@ -39,7 +39,10 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://roll-call-14e2f.web.app",
-  "https://roll-call-14e2f.firebaseapp.com"
+  "https://roll-call-14e2f.firebaseapp.com",
+  // Vercel deployment origins (allow your preview/production domain)
+  "https://roll-call-s43d.vercel.app",
+  "https://roll-call.vercel.app"
 ];
 
 const callableCors = allowedOrigins;
