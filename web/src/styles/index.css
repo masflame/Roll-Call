@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(160deg, #F6F8FA 0%, #FFFFFF 40%, #F2F6FA 100%);
+  color: #0B1320;
+}
+
+.brand-banner {
+  background-image: radial-gradient(120% 120% at 10% 0%, rgba(38,132,255,0.08) 0%, rgba(0,82,204,0.06) 40%, transparent 75%);
+}
+
+* {
+  scrollbar-color: #818CA5 #E5E7EB;
+}
