@@ -297,7 +297,6 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
                   const avg = v.sessions ? Number((v.totalAttendance / v.sessions)) : 0;
                   const avgDisplay = avg.toFixed(2);
                   const base = Number(module.avgAttendance || 1);
-                  const alpha = Math.min(0.85, Math.max(0.08, avg / (base || 1)));
                   const isFaint = alpha < 0.18;
 
                   const cellStyle = isFaint ? undefined : { background: `rgba(59,130,246, ${alpha})` };
