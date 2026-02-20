@@ -6,8 +6,8 @@ import StudentRoutes from "./routes/StudentRoutes";
 function App() {
   return (
     <Routes>
-      <Route path="/*" element={<LecturerRoutes />} />
       <Route path="/s/*" element={<StudentRoutes />} />
+      <Route path="/*" element={<LecturerRoutes />} />
     </Routes>
   );
 }

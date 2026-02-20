@@ -20,6 +20,8 @@ function LecturerRoutes() {
     <Routes>
       <Route path="login" element={<Login />} />
       <Route path="register" element={<Register />} />
+      {/* Public display route for projector/TV - no auth required */}
+      <Route path="sessions/:sessionId/display" element={<SessionDisplay />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<LecturerShell />}>
           <Route index element={<Dashboard />} />
@@ -32,7 +34,6 @@ function LecturerRoutes() {
           <Route path="history" element={<History />} />
           <Route path="history/:sessionId" element={<SessionDetails />} />
         </Route>
-        <Route path="sessions/:sessionId/display" element={<SessionDisplay />} />
       </Route>
     </Routes>
   );
