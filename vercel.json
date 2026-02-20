@@ -9,6 +9,7 @@
   ],
   "routes": [
     { "handle": "filesystem" },
+    { "src": "^/sessions/(.*)/display$", "dest": "/index.html" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
