@@ -457,7 +457,7 @@ function LecturerShell() {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 bg-gray-50 p-4 lg:p-8 pt-16 lg:pt-0">
+        <main className="flex-1 bg-gray-50 p-4 lg:p-8 pt-16 lg:pt-6">
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>
