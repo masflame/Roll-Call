@@ -18,3 +18,10 @@ body {
 * {
   scrollbar-color: #818CA5 #E5E7EB;
 }
+
+/* Ensure QR canvas scales to container width without overflowing */
+.qr-code {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+}
