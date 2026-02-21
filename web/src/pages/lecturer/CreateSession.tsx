@@ -190,7 +190,7 @@ function CreateSession() {
         {activeSessionId && (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm">
             <div className="flex items-center justify-between">
-              <div>There is an active session in progress.</div>
+              <div className="text-text-primary">There is an active session in progress.</div>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -209,16 +209,16 @@ function CreateSession() {
             <div className="md:col-span-1">
               <label className="mb-1 block text-sm font-medium text-text-muted">Module</label>
               <select
-                className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none"
+                className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none text-text-primary"
                 value={moduleId}
                 onChange={(event) => setModuleId(event.target.value)}
                 required
               >
-                <option value="" disabled>
+                <option value="" disabled className="text-text-muted">
                   Select module
                 </option>
                 {modules.map((mod) => (
-                  <option value={mod.id} key={mod.id}>
+                  <option value={mod.id} key={mod.id} className="text-text-primary">
                     {mod.moduleCode}{mod.moduleName ? ` — ${mod.moduleName}` : ""}
                   </option>
                 ))}
@@ -248,7 +248,7 @@ function CreateSession() {
                       checked={windowSeconds === option.value}
                       onChange={() => setWindowSeconds(option.value)}
                     />
-                    {option.label}
+                    <span className="text-text-primary">{option.label}</span>
                   </label>
                 ))}
               </div>
