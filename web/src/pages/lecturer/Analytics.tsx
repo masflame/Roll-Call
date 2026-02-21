@@ -204,7 +204,9 @@ export default function Analytics() {
         {/* Right content */}
         <section className="min-h-[320px]">
           {selected ? (
-            <ModuleAnalyticsView moduleId={selected} />
+            <div className="rounded-2xl border border-stroke-subtle bg-surface p-6 shadow-subtle">
+              <ModuleAnalyticsView moduleId={selected} />
+            </div>
           ) : (
             <div className="rounded-2xl border border-stroke-subtle bg-surface p-6 text-sm text-text-muted shadow-subtle">
               Select a module to begin.
