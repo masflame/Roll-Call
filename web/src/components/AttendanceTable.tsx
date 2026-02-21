@@ -107,12 +107,12 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit, all
 
       {/* Mobile: horizontally-scrollable table that shows only allowed fields */}
       <div className="sm:hidden overflow-x-auto rounded-md border border-stroke-subtle">
-        <table className="min-w-max divide-y divide-stroke-subtle text-sm">
+        <table className="min-w-full table-auto divide-y divide-stroke-subtle text-sm">
           <thead className="sticky top-0 bg-surfaceAlt text-xs uppercase tracking-wide text-gray-700">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="px-3 py-2 text-left">
+                  <th key={header.id} className="px-3 py-2 text-left whitespace-nowrap">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
@@ -124,7 +124,7 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit, all
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} className="transition hover:bg-surfaceAlt/70">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-2 text-sm text-gray-800">
+                  <td key={cell.id} className="px-3 py-2 text-sm text-gray-800 whitespace-nowrap">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
