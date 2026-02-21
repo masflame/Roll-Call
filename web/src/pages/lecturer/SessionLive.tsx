@@ -605,10 +605,10 @@ function SessionLive() {
               {qrUrl ? (
                 <div className="relative w-full flex flex-col items-center">
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="h-40 w-40 sm:h-56 sm:w-56 rounded-3xl bg-gradient-to-tr from-blue-400/18 to-indigo-400/08 blur-3xl opacity-50" />
+                    <div className="h-48 w-48 sm:h-64 sm:w-64 rounded-3xl bg-gradient-to-tr from-blue-400/18 to-indigo-400/08 blur-3xl opacity-50" />
                   </div>
 
-                  <div className="relative z-10 bg-white p-3 rounded-3xl border border-gray-200 shadow-2xl w-44 sm:w-56 aspect-square flex items-center justify-center overflow-hidden">
+                  <div className="relative z-10 bg-white p-3 rounded-3xl border border-gray-200 shadow-2xl w-52 sm:w-64 aspect-square flex items-center justify-center overflow-hidden">
                     <QRCodeCanvas value={qrUrl} size={400} includeMargin level="H" className="qr-code" />
                   </div>
 
@@ -626,13 +626,13 @@ function SessionLive() {
                         }
                       }}
                       aria-label="Copy session link"
-                      className="inline-flex items-center gap-2 text-xs text-gray-500 hover:underline"
+                      className="inline-flex items-center gap-2 text-sm text-gray-500 hover:underline"
                     >
                       <span className="break-all max-w-[220px]">{qrUrl}</span>
                       {copied ? (
-                        <CheckCircle className="h-4 w-4 text-emerald-500" />
+                        <CheckCircle className="h-6 w-6 sm:h-4 sm:w-4 text-emerald-500" />
                       ) : (
-                        <Copy className="h-4 w-4 text-gray-400" />
+                        <Copy className="h-6 w-6 sm:h-4 sm:w-4 text-gray-400" />
                       )}
                     </button>
                   </div>
