@@ -55,14 +55,14 @@ function Login() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
-            className="w-full rounded bg-primary-500 px-4 py-2 text-white transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="w-full rounded bg-brand-primary px-4 py-2 text-text-onBrand transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-slate-400"
             disabled={loading}
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
           </form>
           <p className="mt-4 text-sm text-slate-600">
-            No account? <Link to="/register" className="font-semibold text-primary-600">Register</Link>
+            No account? <Link to="/register" className="font-semibold text-brand-secondary">Register</Link>
           </p>
         </div>
       </div>
