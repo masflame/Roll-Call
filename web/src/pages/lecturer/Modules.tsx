@@ -61,8 +61,8 @@ function Modules() {
   };
 
   return (
-    <div className="space-y-8">
-      <PageHeader title="Modules" description="Organise the classes you deliver this term." showBack={false} />
+      <div className="space-y-8">
+        <PageHeader title="Modules" description="Organise the classes you deliver this term." showBack={false} noBackground />
 
       <section className="rounded-md border border-stroke-subtle bg-surface p-6 shadow-subtle">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">Add module</h2>
