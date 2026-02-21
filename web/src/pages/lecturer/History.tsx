@@ -43,7 +43,7 @@ function History() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Attendance history" description="Review completed sessions and export records." showBack={false} />
+      <PageHeader title="Attendance history" description="Review completed sessions and export records." showBack={false} noBackground />
       <section className="rounded-md border border-stroke-subtle bg-surface shadow-subtle">
         <ul className="divide-y divide-stroke-subtle">
           {sessions.map((session) => (
