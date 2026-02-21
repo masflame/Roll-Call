@@ -94,8 +94,10 @@ export default function Analytics() {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       {/* Header */}
       <div className="rounded-2xl border border-stroke-subtle bg-surface p-6 shadow-subtle">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-1.5 h-8 rounded bg-brand-primary/90" />
+            <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
               Analytics
             </p>

@@ -85,6 +85,7 @@ function SessionDetails() {
         title="Session details"
         description={headerDescription}
         action={<ExportButtons sessionId={sessionId || ""} />}
+        noBackground
       />
 
       <section className="rounded-3xl border border-stroke-subtle bg-surface p-6 shadow-subtle">
