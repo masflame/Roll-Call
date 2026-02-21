@@ -16,9 +16,11 @@ function PageHeader({ title, description, action, showBack = true, noBackground 
     ? "hidden lg:block"
     : "hidden lg:block bg-surface/95 border-b border-stroke-subtle";
 
+  const innerClass = noBackground ? "max-w-6xl mx-auto px-4 py-0" : "max-w-6xl mx-auto px-4 py-3";
+
   return (
     <div className={outerClass}>
-      <div className="max-w-6xl mx-auto px-4 py-3">
+      <div className={innerClass}>
         <div className="space-y-3">
           {showBack && (
             <button
