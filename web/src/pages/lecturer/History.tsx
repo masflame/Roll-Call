@@ -101,7 +101,7 @@ function History() {
       <div className="sticky top-14 z-40 bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="text-sm font-semibold">Group by</div>
+            <div className="text-sm font-semibold text-gray-900">Group by</div>
             <div className="inline-flex rounded bg-white p-1">
               <button onClick={() => setGroupBy("module")} className={`px-3 py-1 text-sm ${groupBy === "module" ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-600"}`}>Module</button>
               <button onClick={() => setGroupBy("date")} className={`px-3 py-1 text-sm ${groupBy === "date" ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-600"}`}>Date</button>
@@ -154,7 +154,7 @@ function History() {
                           </button>
                         </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => toggleGroup(headerKey)} className="rounded-md border px-3 py-1 text-sm">{expanded ? "Collapse" : "Expand"}</button>
+                      <button onClick={() => toggleGroup(headerKey)} className="rounded-md border border-gray-200 px-3 py-1 text-sm text-gray-700 bg-white hover:bg-gray-50">{expanded ? "Collapse" : "Expand"}</button>
                     </div>
                   </div>
 
