@@ -31,8 +31,8 @@ export default function ProfileMenu() {
 
       {open && (
         <div className="absolute right-0 mt-2 w-44 rounded-md border border-stroke-subtle bg-surface shadow-md">
-          <button onClick={() => { setOpen(false); navigate('/settings'); }} className="w-full text-left px-4 py-2 text-sm hover:bg-surfaceAlt">Settings</button>
-          <button onClick={() => { setOpen(false); navigate('/profile'); }} className="w-full text-left px-4 py-2 text-sm hover:bg-surfaceAlt">Account</button>
+          <button onClick={() => { setOpen(false); navigate('/settings'); }} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surfaceAlt">Settings</button>
+          <button onClick={() => { setOpen(false); navigate('/profile'); }} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surfaceAlt">Account</button>
           <div className="border-t border-stroke-subtle" />
           <button onClick={() => signOut(auth)} className="w-full text-left px-4 py-2 text-sm text-accent-error hover:bg-surfaceAlt">Logout</button>
         </div>
