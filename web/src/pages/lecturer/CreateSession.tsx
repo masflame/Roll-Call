@@ -301,17 +301,17 @@ function CreateSession() {
 
         {error && <p className="text-sm text-accent-error">{error}</p>}
 
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="rounded-md border border-stroke-subtle px-4 py-3 text-base font-medium text-text-muted transition hover:bg-surfaceAlt"
+            className="w-full sm:w-auto rounded-md border border-stroke-subtle px-4 py-3 text-base font-medium text-text-muted transition hover:bg-surfaceAlt"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-brand-primary px-6 py-3 text-base font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
+            className="w-full sm:w-auto rounded-lg bg-brand-primary px-6 py-3 text-base font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
             disabled={loading}
           >
             {loading ? "Starting..." : "Start session"}

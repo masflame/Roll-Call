@@ -121,7 +121,9 @@ function Modules() {
               {modules.map((mod) => (
                 <tr key={mod.id} className="hover:bg-surfaceAlt/60">
                   <td className="px-4 py-2 font-medium text-text-primary">{mod.moduleCode}</td>
-                  <td className="px-4 py-2 text-text-muted">{mod.moduleName || "—"}</td>
+                  <td className="px-4 py-2 text-text-muted">
+                    <div className="max-w-[220px] sm:max-w-[400px] overflow-x-auto whitespace-nowrap">{mod.moduleName || "—"}</div>
+                  </td>
                   <td className="px-4 py-2 text-text-muted">--</td>
                   <td className="px-4 py-2 text-right">
                     <div className="inline-flex items-center gap-2">
