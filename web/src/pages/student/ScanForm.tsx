@@ -216,7 +216,7 @@ function ScanForm() {
           <div>
             <label className="mb-1 block text-sm font-medium text-text-muted">Student number</label>
             <input
-              className="w-full rounded-md border border-stroke-subtle px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+              className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none"
               value={formValues.studentNumber || ""}
               onChange={(event) => handleChange("studentNumber", event.target.value)}
               required
@@ -228,7 +228,7 @@ function ScanForm() {
               <div key={key}>
                 <label className="mb-1 block text-sm font-medium text-text-muted capitalize">{key}</label>
                 <input
-                  className="w-full rounded-md border border-stroke-subtle px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+                  className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none"
                   value={formValues[key] || ""}
                   onChange={(event) => handleChange(key, event.target.value)}
                   required
@@ -239,7 +239,7 @@ function ScanForm() {
             <div>
               <label className="mb-1 block text-sm font-medium text-text-muted">In-class code</label>
               <input
-                className="w-full rounded-md border border-stroke-subtle px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+                className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none"
                 value={formValues.classCode || ""}
                 onChange={(event) => handleChange("classCode", event.target.value)}
                 maxLength={4}
@@ -259,7 +259,7 @@ function ScanForm() {
           )}
           <button
             type="submit"
-            className="w-full rounded-md bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
+            className="w-full rounded-lg bg-brand-primary px-4 py-3 text-base font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
             disabled={loading}
           >
             {loading ? "Submitting..." : "Submit attendance"}
