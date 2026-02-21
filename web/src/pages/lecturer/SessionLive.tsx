@@ -534,7 +534,7 @@ function SessionLive() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 text-text-primary px-2 sm:px-0">
       {/* Top bar */}
       <div className="mb-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -604,12 +604,14 @@ function SessionLive() {
             <div className="rounded-2xl border border-stroke-subtle bg-surfaceAlt p-4">
               {qrUrl ? (
                 <div className="relative w-full flex flex-col items-center">
-                  <div className="absolute -inset-6 flex items-center justify-center pointer-events-none">
+                  <div className="absolute -inset-6 flex items-center justify-center pointer-events-none hidden sm:flex">
                     <div className="h-[240px] w-[240px] rounded-3xl bg-gradient-to-tr from-blue-400/20 to-indigo-400/10 blur-3xl opacity-60" />
                   </div>
 
-                  <div className="relative z-10 bg-white p-4 rounded-3xl border border-gray-200 shadow-2xl">
-                    <QRCodeCanvas value={qrUrl} size={200} includeMargin level="H" />
+                  <div className="relative z-10 bg-white p-4 rounded-3xl border border-gray-200 shadow-2xl w-full max-w-[200px]">
+                    <div className="w-full">
+                      <QRCodeCanvas value={qrUrl} size={200} includeMargin level="H" />
+                    </div>
                   </div>
 
                   <div className="mt-4 text-center">
