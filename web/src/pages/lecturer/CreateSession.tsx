@@ -185,6 +185,7 @@ function CreateSession() {
       <PageHeader
         title="Start attendance session"
         description="Define session details, required student information, and anti-sharing measures."
+        noBackground
       />
 
       <form className="space-y-8" onSubmit={handleSubmit}>
