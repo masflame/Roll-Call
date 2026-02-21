@@ -191,66 +191,66 @@ function Schedules() {
     <div className="space-y-6">
       <PageHeader title="Schedules" description="Create and manage scheduled attendance sessions." noBackground />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <form className="rounded-md border border-stroke-subtle bg-white p-6 shadow-sm text-gray-900" onSubmit={handleCreate}>
+      <div className="grid gap-4 md:grid-cols-2">
+            <form className="rounded-md border border-stroke-subtle bg-white p-4 sm:p-6 shadow-sm text-gray-900" onSubmit={handleCreate}>
           <h3 className="text-sm font-semibold text-gray-900">New schedule</h3>
-          <div className="mt-4 grid gap-3">
-            <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} className="rounded-md border px-4 py-3 text-base text-gray-900">
+              <div className="mt-4 grid gap-3">
+                <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
               <option value="">Select module</option>
               {modules.map((m: any) => <option key={m.id} value={m.id}>{m.moduleCode}{m.moduleName ? ` — ${m.moduleName}` : ""}</option>)}
             </select>
-            <input className="rounded-md border px-4 py-3 text-base text-gray-900" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <input type="datetime-local" className="rounded-md border px-4 py-3 text-base text-gray-900" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-            <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="rounded-md border px-4 py-3 text-base text-gray-900">
+                <input className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <input type="datetime-local" className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+                <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
               <option value="none">No recurrence</option>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
-            <input className="rounded-md border px-4 py-3 text-base text-gray-900" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
+                <input className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
             <div className="grid gap-2 sm:grid-cols-2">
-              {windowOptions.map((opt) => (
-                <label key={opt.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${windowSeconds === opt.value ? 'border-brand-primary bg-surfaceAlt' : 'border-stroke-subtle'}`}>
-                  <input type="radio" name="window" checked={windowSeconds === opt.value} onChange={() => setWindowSeconds(opt.value)} /> <span className="text-gray-900">{opt.label}</span>
-                </label>
-              ))}
+                  {windowOptions.map((opt) => (
+                    <label key={opt.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${windowSeconds === opt.value ? 'border-brand-primary bg-surfaceAlt' : 'border-stroke-subtle'}`}>
+                      <input type="radio" name="window" checked={windowSeconds === opt.value} onChange={() => setWindowSeconds(opt.value)} /> <span className="text-gray-900 text-sm">{opt.label}</span>
+                    </label>
+                  ))}
             </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={requireClassCode} onChange={() => setRequireClassCode((p) => !p)} /> Require class code</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={concurrent} onChange={() => setConcurrent((p) => !p)} /> Allow concurrent sessions</label>
-            </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireClassCode} onChange={() => setRequireClassCode((p) => !p)} /> <span className="ml-1">Require class code</span></label>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={concurrent} onChange={() => setConcurrent((p) => !p)} /> <span className="ml-1">Allow concurrent sessions</span></label>
+                </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              {['name','surname','initials','email','group'].map((k) => (
-                <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={!!requiredFields[k]} onChange={() => toggleField(k)} /> <span className="text-gray-900">{k}</span></label>
-              ))}
+                  {['name','surname','initials','email','group'].map((k) => (
+                    <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!requiredFields[k]} onChange={() => toggleField(k)} /> <span className="text-gray-900 ml-1">{k}</span></label>
+                  ))}
             </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => { setTitle(''); setRecurrence('none'); setInstructors(''); setConcurrent(false); setEditingId(null); }} className="rounded-md border px-4 py-3 text-base">Reset</button>
-              <button type="submit" disabled={loading} className="rounded-lg bg-gray-900 text-white px-4 py-3 text-base">{editingId ? 'Update' : 'Save'}</button>
-            </div>
+                <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
+                  <button type="button" onClick={() => { setTitle(''); setRecurrence('none'); setInstructors(''); setConcurrent(false); setEditingId(null); }} className="rounded-md border px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base w-full sm:w-auto">Reset</button>
+                  <button type="submit" disabled={loading} className="rounded-lg bg-gray-900 text-white px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base w-full sm:w-auto">{editingId ? 'Update' : 'Save'}</button>
+                </div>
           </div>
         </form>
 
-          <div className="space-y-3">
-          {schedules.map((s: any) => (
-            <div key={s.id} className="rounded-md border bg-white p-4 shadow-sm flex items-start justify-between text-gray-900">
+              <div className="space-y-2">
+              {schedules.map((s: any) => (
+                <div key={s.id} className="rounded-md border bg-white p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between text-gray-900">
               <div>
-                <div className="text-sm font-semibold text-gray-900">{s.title || (moduleMap[s.moduleId]?.moduleCode || 'Untitled')}</div>
-                <div className="text-xs text-gray-600">{s.scheduledAt?.toDate ? new Date(s.scheduledAt.toDate()).toLocaleString() : s.scheduledAt ? new Date(s.scheduledAt).toLocaleString() : '—'}</div>
-                <div className="text-xs text-gray-600 mt-2">Status: {s.status || 'queued'}</div>
-                <div className="text-xs text-gray-600 mt-1">Recurrence: {s.recurrence || 'none'}</div>
-                <div className="text-xs text-gray-600 mt-1">Instructors: {(s.instructors || []).join(', ') || '—'}</div>
-                <div className="text-xs text-gray-600 mt-1">Concurrent sessions: {s.concurrent ? 'Yes' : 'No'}</div>
+                    <div className="text-sm font-semibold text-gray-900">{s.title || (moduleMap[s.moduleId]?.moduleCode || 'Untitled')}</div>
+                    <div className="text-xs text-gray-600">{s.scheduledAt?.toDate ? new Date(s.scheduledAt.toDate()).toLocaleString() : s.scheduledAt ? new Date(s.scheduledAt).toLocaleString() : '—'}</div>
+                    <div className="text-xs text-gray-600 mt-1">Status: {s.status || 'queued'}</div>
+                    <div className="text-xs text-gray-600 mt-1">Recurrence: {s.recurrence || 'none'}</div>
+                    <div className="text-xs text-gray-600 mt-1">Instructors: {(s.instructors || []).join(', ') || '—'}</div>
+                    <div className="text-xs text-gray-600 mt-1">Concurrent sessions: {s.concurrent ? 'Yes' : 'No'}</div>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex gap-2">
-                  <button onClick={() => handleStart(s)} disabled={s.status === 'started' || loading} className="rounded-md bg-brand-primary text-white px-3 py-1 text-sm">Start</button>
-                  <button onClick={() => handleEdit(s)} className="rounded-md border px-3 py-1 text-sm text-gray-700">Edit</button>
-                </div>
-                <button onClick={() => handleDelete(s.id)} className="rounded-md border px-3 py-1 text-sm text-gray-700">Delete</button>
-              </div>
+                  <div className="mt-3 sm:mt-0 flex items-center sm:flex-col sm:items-end gap-2">
+                    <div className="flex gap-2">
+                      <button onClick={() => handleStart(s)} disabled={s.status === 'started' || loading} className="rounded-md bg-brand-primary text-white px-3 py-1 text-sm">Start</button>
+                      <button onClick={() => handleEdit(s)} className="rounded-md border px-3 py-1 text-sm text-gray-700">Edit</button>
+                    </div>
+                    <button onClick={() => handleDelete(s.id)} className="rounded-md border px-3 py-1 text-sm text-gray-700">Delete</button>
+                  </div>
             </div>
           ))}
-        </div>
+            </div>
       </div>
     </div>
   );
