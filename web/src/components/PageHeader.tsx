@@ -7,13 +7,17 @@ interface PageHeaderProps {
   description?: string;
   action?: ReactNode;
   showBack?: boolean;
+  noBackground?: boolean;
 }
 
-function PageHeader({ title, description, action, showBack = true }: PageHeaderProps) {
+function PageHeader({ title, description, action, showBack = true, noBackground = false }: PageHeaderProps) {
   const navigate = useNavigate();
+  const outerClass = noBackground
+    ? "hidden lg:block"
+    : "hidden lg:block bg-surface/95 border-b border-stroke-subtle";
 
   return (
-    <div className="hidden lg:block bg-surface/95 border-b border-stroke-subtle">
+    <div className={outerClass}>
       <div className="max-w-6xl mx-auto px-4 py-3">
         <div className="space-y-3">
           {showBack && (

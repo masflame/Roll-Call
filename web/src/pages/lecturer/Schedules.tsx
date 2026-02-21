@@ -189,7 +189,7 @@ function Schedules() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Schedules" description="Create and manage scheduled attendance sessions." />
+      <PageHeader title="Schedules" description="Create and manage scheduled attendance sessions." noBackground />
 
       <div className="grid gap-6 md:grid-cols-2">
         <form className="rounded-md border border-stroke-subtle bg-white p-6 shadow-sm" onSubmit={handleCreate}>
