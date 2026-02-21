@@ -191,22 +191,22 @@ function Schedules() {
     <div className="space-y-6">
       <PageHeader title="Schedules" description="Create and manage scheduled attendance sessions." noBackground />
 
-      <div className="grid gap-4 md:grid-cols-2">
-            <form className="rounded-md border border-stroke-subtle bg-white p-4 sm:p-6 shadow-sm text-gray-900" onSubmit={handleCreate}>
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+          <form className="rounded-md border border-stroke-subtle bg-white p-4 sm:p-6 shadow-sm text-gray-900 w-full max-w-full overflow-hidden box-border" onSubmit={handleCreate}>
           <h3 className="text-sm font-semibold text-gray-900">New schedule</h3>
               <div className="mt-4 grid gap-3">
-                <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
+                <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
               <option value="">Select module</option>
               {modules.map((m: any) => <option key={m.id} value={m.id}>{m.moduleCode}{m.moduleName ? ` — ${m.moduleName}` : ""}</option>)}
             </select>
-                <input className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
-                <input type="datetime-local" className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-                <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
+                <input className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <input type="datetime-local" className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+                <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
               <option value="none">No recurrence</option>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
-                <input className="rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
+                <input className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
             <div className="grid gap-2 sm:grid-cols-2">
                   {windowOptions.map((opt) => (
                     <label key={opt.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${windowSeconds === opt.value ? 'border-brand-primary bg-surfaceAlt' : 'border-stroke-subtle'}`}>
@@ -230,10 +230,10 @@ function Schedules() {
           </div>
         </form>
 
-              <div className="space-y-2">
+              <div className="space-y-2 overflow-x-auto">
               {schedules.map((s: any) => (
-                <div key={s.id} className="rounded-md border bg-white p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between text-gray-900">
-              <div>
+                <div key={s.id} className="w-full box-border rounded-md border bg-white p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between text-gray-900">
+                  <div className="min-w-0">
                     <div className="text-sm font-semibold text-gray-900">{s.title || (moduleMap[s.moduleId]?.moduleCode || 'Untitled')}</div>
                     <div className="text-xs text-gray-600">{s.scheduledAt?.toDate ? new Date(s.scheduledAt.toDate()).toLocaleString() : s.scheduledAt ? new Date(s.scheduledAt).toLocaleString() : '—'}</div>
                     <div className="text-xs text-gray-600 mt-1">Status: {s.status || 'queued'}</div>
