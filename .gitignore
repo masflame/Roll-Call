@@ -70,3 +70,5 @@ node_modules/
 
 # Ignore accidental duplicate folder with trailing dot on Windows
 /web/web./
+.vercel
+.env*.local

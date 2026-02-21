@@ -350,7 +350,7 @@ function LecturerShell() {
               RollCall
             </div>
             <div className="mt-2 text-xl font-semibold text-white">
-              Lecturer Console
+              Lecturer Console2
             </div>
           </button>
         </div>

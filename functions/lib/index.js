@@ -75,6 +75,9 @@ const allowedOrigins = [
     "https://roll-call-14e2f.web.app",
     "https://roll-call-14e2f.firebaseapp.com",
     // Vercel deployment origins (allow your preview/production domain)
+    "https://roll-call-s43d-git-main-masflames-projects.vercel.app",
+    "https://roll-call-s43d-7b58cg847-masflames-projects.vercel.app",
+    "https://roll-call-s43d-f5a4847b2-masflames-projects.vercel.app",
     "https://roll-call-s43d.vercel.app",
     "https://roll-call.vercel.app"
 ];
