@@ -195,18 +195,18 @@ function Schedules() {
         <form className="rounded-md border border-stroke-subtle bg-white p-6 shadow-sm" onSubmit={handleCreate}>
           <h3 className="text-sm font-semibold text-text-muted">New schedule</h3>
           <div className="mt-4 grid gap-3">
-            <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} className="rounded-md border px-3 py-2">
+            <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} className="rounded-md border px-4 py-3 text-base">
               <option value="">Select module</option>
               {modules.map((m: any) => <option key={m.id} value={m.id}>{m.moduleCode}{m.moduleName ? ` — ${m.moduleName}` : ""}</option>)}
             </select>
-            <input className="rounded-md border px-3 py-2" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <input type="datetime-local" className="rounded-md border px-3 py-2" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-            <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="rounded-md border px-3 py-2">
+            <input className="rounded-md border px-4 py-3 text-base" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input type="datetime-local" className="rounded-md border px-4 py-3 text-base" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+            <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="rounded-md border px-4 py-3 text-base">
               <option value="none">No recurrence</option>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
-            <input className="rounded-md border px-3 py-2" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
+            <input className="rounded-md border px-4 py-3 text-base" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
             <div className="grid gap-2 sm:grid-cols-2">
               {windowOptions.map((opt) => (
                 <label key={opt.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${windowSeconds === opt.value ? 'border-brand-primary bg-surfaceAlt' : 'border-stroke-subtle'}`}>
@@ -219,13 +219,13 @@ function Schedules() {
               <label className="flex items-center gap-2"><input type="checkbox" checked={concurrent} onChange={() => setConcurrent((p) => !p)} /> Allow concurrent sessions</label>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              {Object.entries(requiredFields).map(([k, v]) => (
-                <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={v} onChange={() => toggleField(k)} />{k}</label>
+              {['name','surname','initials','email','group'].map((k) => (
+                <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={!!requiredFields[k]} onChange={() => toggleField(k)} />{k}</label>
               ))}
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => { setTitle(''); setRecurrence('none'); setInstructors(''); setConcurrent(false); setEditingId(null); }} className="rounded-md border px-3 py-2">Reset</button>
-              <button type="submit" disabled={loading} className="rounded-md bg-gray-900 text-white px-4 py-2">{editingId ? 'Update' : 'Save'}</button>
+              <button type="button" onClick={() => { setTitle(''); setRecurrence('none'); setInstructors(''); setConcurrent(false); setEditingId(null); }} className="rounded-md border px-4 py-3 text-base">Reset</button>
+              <button type="submit" disabled={loading} className="rounded-lg bg-gray-900 text-white px-4 py-3 text-base">{editingId ? 'Update' : 'Save'}</button>
             </div>
           </div>
         </form>
