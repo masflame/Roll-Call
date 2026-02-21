@@ -59,7 +59,8 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: A
 
   return (
     <div>
-      <div className="overflow-x-auto rounded-md border border-stroke-subtle">
+      {/* Desktop table (scrollable horizontally) */}
+      <div className="hidden sm:block overflow-x-auto rounded-md border border-stroke-subtle">
         <table className="min-w-full divide-y divide-stroke-subtle text-sm">
           <thead className="sticky top-0 bg-surfaceAlt text-xs uppercase tracking-wide text-text-muted">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -93,10 +94,30 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: A
         </table>
       </div>
 
-      {/* Mobile: table is horizontally scrollable so headers remain visible */}
-      {table.getRowModel().rows.length === 0 && (
-        <div className="rounded-md border border-stroke-subtle bg-surface p-4 text-sm text-text-muted mt-3">No attendance yet.</div>
-      )}
+      {/* Mobile card list (kept compact) */}
+      <div className="sm:hidden space-y-3">
+        {table.getRowModel().rows.length === 0 && (
+          <div className="rounded-md border border-stroke-subtle bg-surface p-4 text-sm text-text-muted">No attendance yet.</div>
+        )}
+        {table.getRowModel().rows.map((row) => {
+          const data = row.original;
+          return (
+            <div key={row.id} className="rounded-md border border-stroke-subtle bg-surface p-3">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold">{data.studentNumber}</div>
+                <div className="text-sm text-text-muted">{data.status}</div>
+              </div>
+              <div className="mt-1 text-sm text-text-muted">{[data.surname, data.name].filter(Boolean).join(" ")}</div>
+              <div className="mt-2 flex items-center justify-between">
+                <div className="text-xs text-text-muted">{data.group}</div>
+                <div>
+                  <button onClick={() => onEdit && onEdit(data)} className="text-xs text-brand-primary">Edit</button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
