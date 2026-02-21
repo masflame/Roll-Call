@@ -203,15 +203,17 @@ function SessionDisplay() {
         <div className="max-w-6xl w-full">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
             {/* LEFT: QR */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center w-full">
               <div className="relative">
                 <div className="absolute -inset-5 bg-gradient-to-r from-blue-500/20 to-emerald-500/20 rounded-3xl blur-2xl" />
 
-                <div className="relative bg-white rounded-2xl p-4 shadow-2xl">
+                <div className="relative bg-white rounded-2xl p-4 shadow-2xl w-full max-w-[380px]">
                   {canShowQr && qrUrl ? (
-                    <QRCodeCanvas value={qrUrl} size={380} includeMargin level="H" className="rounded-lg" />
+                    <div className="w-full">
+                      <QRCodeCanvas value={qrUrl} size={380} includeMargin level="H" className="rounded-lg" style={{ width: '100%', height: 'auto' }} />
+                    </div>
                   ) : (
-                    <div className="w-[380px] h-[380px] flex flex-col items-center justify-center bg-gray-100 rounded-lg">
+                    <div className="w-full aspect-square flex flex-col items-center justify-center bg-gray-100 rounded-lg" style={{ maxWidth: 380 }}>
                       <QrCode className="h-16 w-16 text-gray-400 mb-3" />
                       <span className="text-gray-500 font-medium">
                         {hasEnded ? "Session ended" : isExpired ? "QR expired" : "Waiting for QR..."}
@@ -232,7 +234,7 @@ function SessionDisplay() {
               </div>
 
               {/* Simple caption */}
-              <div className="mt-5 w-full max-w-[380px] text-center">
+              <div className="mt-5 w-full text-center">
                 <p className="text-sm text-gray-300">Scan the QR code to submit attendance</p>
               </div>
             </div>
