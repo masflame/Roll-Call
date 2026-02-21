@@ -13,7 +13,7 @@ function PageHeader({ title, description, action, showBack = true }: PageHeaderP
   const navigate = useNavigate();
 
   return (
-    <div className="sticky sm:static top-0 z-40 bg-surface/95 backdrop-blur-sm border-b border-stroke-subtle">
+    <div className="hidden lg:block bg-surface/95 border-b border-stroke-subtle">
       <div className="max-w-6xl mx-auto px-4 py-3">
         <div className="space-y-3">
           {showBack && (
