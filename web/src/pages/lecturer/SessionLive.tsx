@@ -604,14 +604,12 @@ function SessionLive() {
             <div className="rounded-2xl border border-stroke-subtle bg-surfaceAlt p-4">
               {qrUrl ? (
                 <div className="relative w-full flex flex-col items-center">
-                  <div className="absolute -inset-6 flex items-center justify-center pointer-events-none hidden sm:flex">
-                    <div className="h-[240px] w-[240px] rounded-3xl bg-gradient-to-tr from-blue-400/20 to-indigo-400/10 blur-3xl opacity-60" />
+                  <div className="absolute -inset-6 flex items-center justify-center pointer-events-none">
+                    <div className="h-[220px] w-[220px] rounded-3xl bg-gradient-to-tr from-blue-400/18 to-indigo-400/08 blur-3xl opacity-50" />
                   </div>
 
-                  <div className="relative z-10 bg-white p-4 rounded-3xl border border-gray-200 shadow-2xl w-full max-w-[200px]">
-                    <div className="w-full">
-                      <QRCodeCanvas value={qrUrl} size={200} includeMargin level="H" />
-                    </div>
+                  <div className="relative z-10 bg-white p-4 rounded-3xl border border-gray-200 shadow-2xl w-[180px] sm:w-[240px]">
+                    <QRCodeCanvas value={qrUrl} size={240} includeMargin level="H" />
                   </div>
 
                   <div className="mt-4 text-center">
