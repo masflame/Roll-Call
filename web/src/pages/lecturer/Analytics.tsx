@@ -108,8 +108,9 @@ export default function Analytics() {
               Trends, heatmaps, completion curves, and integrity signals—organised per module.
             </p>
           </div>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             <PrimaryButton onClick={handleRecompute} disabled={recomputing}>
               {recomputing ? "Recomputing…" : "Recompute (90 days)"}
             </PrimaryButton>
