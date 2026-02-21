@@ -1,0 +1,7 @@
+{
+  "name": "roll-call-root",
+  "private": true,
+  "scripts": {
+    "build": "cd web && npm run build"
+  }
+}
