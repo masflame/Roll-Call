@@ -70,7 +70,7 @@ function Modules() {
           <div>
             <label className="mb-1 block text-sm font-medium text-text-muted">Module code</label>
             <input
-              className="w-full rounded-md border border-stroke-subtle px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+              className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base focus:border-brand-primary focus:outline-none"
               value={moduleCode}
               onChange={(event) => setModuleCode(event.target.value)}
               required
@@ -79,7 +79,7 @@ function Modules() {
           <div>
             <label className="mb-1 block text-sm font-medium text-text-muted">Module name</label>
             <input
-              className="w-full rounded-md border border-stroke-subtle px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+              className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base focus:border-brand-primary focus:outline-none"
               value={moduleName}
               onChange={(event) => setModuleName(event.target.value)}
               placeholder="Optional"
@@ -90,7 +90,7 @@ function Modules() {
             <div className="ml-auto flex gap-3">
               <button
                 type="submit"
-                className="rounded-md bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
+                className="rounded-lg bg-brand-primary px-5 py-3 text-base font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
                 disabled={loading}
               >
                 {loading ? "Saving..." : "Save module"}

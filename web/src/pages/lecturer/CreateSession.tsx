@@ -209,7 +209,7 @@ function CreateSession() {
             <div className="md:col-span-1">
               <label className="mb-1 block text-sm font-medium text-text-muted">Module</label>
               <select
-                className="w-full rounded-md border border-stroke-subtle px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+                className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none"
                 value={moduleId}
                 onChange={(event) => setModuleId(event.target.value)}
                 required
@@ -227,7 +227,7 @@ function CreateSession() {
             <div className="md:col-span-1">
               <label className="mb-1 block text-sm font-medium text-text-muted">Session title</label>
               <input
-                className="w-full rounded-md border border-stroke-subtle px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
+                className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Week 2 lecture"
@@ -260,11 +260,11 @@ function CreateSession() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">Student fields</h2>
           <p className="mt-2 text-sm text-text-muted">Select the data students must provide when submitting attendance.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {Object.entries(requiredFields).map(([field, enabled]) => (
+            {['name','surname','initials','email','group'].map((field) => (
               <label key={field} className="flex items-center gap-2 text-sm text-text-primary">
                 <input
                   type="checkbox"
-                  checked={enabled}
+                  checked={!!requiredFields[field]}
                   onChange={() => toggleField(field)}
                 />
                 <span className="capitalize">{field}</span>
@@ -305,13 +305,13 @@ function CreateSession() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="rounded-md border border-stroke-subtle px-4 py-2 text-sm font-medium text-text-muted transition hover:bg-surfaceAlt"
+            className="rounded-md border border-stroke-subtle px-4 py-3 text-base font-medium text-text-muted transition hover:bg-surfaceAlt"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="rounded-md bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
+            className="rounded-lg bg-brand-primary px-6 py-3 text-base font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
             disabled={loading}
           >
             {loading ? "Starting..." : "Start session"}

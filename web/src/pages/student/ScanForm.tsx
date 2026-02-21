@@ -235,6 +235,22 @@ function ScanForm() {
                 />
               </div>
             ))}
+            {(() => {
+              const fieldOrder = ["name", "surname", "initials", "email", "group"];
+              return fieldOrder
+                .filter((k) => requiredFields[k])
+                .map((key) => (
+                  <div key={key}>
+                    <label className="mb-1 block text-sm font-medium text-text-muted capitalize">{key}</label>
+                    <input
+                      className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base sm:text-sm focus:border-brand-primary focus:outline-none"
+                      value={formValues[key] || ""}
+                      onChange={(event) => handleChange(key, event.target.value)}
+                      required
+                    />
+                  </div>
+                ));
+            })()}
           {classCodeRequired && (
             <div>
               <label className="mb-1 block text-sm font-medium text-text-muted">In-class code</label>
