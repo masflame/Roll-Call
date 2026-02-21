@@ -29,11 +29,11 @@ function Login() {
   return (
     <Layout>
       <div className="flex min-h-[480px] items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-lg bg-white p-8 shadow">
-          <h1 className="mb-6 text-2xl font-bold text-slate-900">Lecturer Login</h1>
+        <div className="w-full max-w-md rounded-lg bg-brand-primary p-8 shadow">
+          <h1 className="mb-6 text-2xl font-bold text-text-onBrand">Lecturer Login</h1>
           <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <label className="mb-1 block text-sm font-medium text-text-onBrand">Email</label>
             <input
               type="email"
               className="w-full rounded border border-slate-300 px-3 py-2"
@@ -43,7 +43,7 @@ function Login() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+            <label className="mb-1 block text-sm font-medium text-text-onBrand">Password</label>
             <input
               type="password"
               className="w-full rounded border border-slate-300 px-3 py-2"
@@ -61,8 +61,8 @@ function Login() {
             {loading ? "Signing in..." : "Sign in"}
           </button>
           </form>
-          <p className="mt-4 text-sm text-slate-600">
-            No account? <Link to="/register" className="font-semibold text-brand-secondary">Register</Link>
+          <p className="mt-4 text-sm text-text-onBrand">
+            No account? <Link to="/register" className="font-semibold text-text-onBrand underline">Register</Link>
           </p>
         </div>
       </div>

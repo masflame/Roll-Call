@@ -56,12 +56,12 @@ function Register() {
   return (
     <Layout>
       <div className="flex min-h-[480px] items-center justify-center px-4">
-        <div className="w-full max-w-xl rounded-lg bg-white p-8 shadow">
-          <h1 className="mb-6 text-2xl font-bold text-slate-900">Lecturer Registration</h1>
+        <div className="w-full max-w-xl rounded-lg bg-brand-primary p-8 shadow">
+          <h1 className="mb-6 text-2xl font-bold text-text-onBrand">Lecturer Registration</h1>
           <form className="grid grid-cols-1 gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">First name</label>
+              <label className="mb-1 block text-sm font-medium text-text-onBrand">First name</label>
               <input
                 className="w-full rounded border border-slate-300 px-3 py-2"
                 value={firstName}
@@ -70,7 +70,7 @@ function Register() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Last name</label>
+              <label className="mb-1 block text-sm font-medium text-text-onBrand">Last name</label>
               <input
                 className="w-full rounded border border-slate-300 px-3 py-2"
                 value={lastName}
@@ -80,7 +80,7 @@ function Register() {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <label className="mb-1 block text-sm font-medium text-text-onBrand">Email</label>
             <input
               type="email"
               className="w-full rounded border border-slate-300 px-3 py-2"
@@ -90,7 +90,7 @@ function Register() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Department (optional)</label>
+            <label className="mb-1 block text-sm font-medium text-text-onBrand">Department (optional)</label>
             <input
               className="w-full rounded border border-slate-300 px-3 py-2"
               value={department}
@@ -99,7 +99,7 @@ function Register() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+              <label className="mb-1 block text-sm font-medium text-text-onBrand">Password</label>
               <input
                 type="password"
                 className="w-full rounded border border-slate-300 px-3 py-2"
@@ -109,7 +109,7 @@ function Register() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Confirm password</label>
+              <label className="mb-1 block text-sm font-medium text-text-onBrand">Confirm password</label>
               <input
                 type="password"
                 className="w-full rounded border border-slate-300 px-3 py-2"
@@ -128,8 +128,8 @@ function Register() {
             {loading ? "Creating account..." : "Create account"}
           </button>
           </form>
-          <p className="mt-4 text-sm text-slate-600">
-            Already registered? <Link to="/login" className="font-semibold text-brand-secondary">Sign in</Link>
+          <p className="mt-4 text-sm text-text-onBrand">
+            Already registered? <Link to="/login" className="font-semibold text-text-onBrand underline">Sign in</Link>
           </p>
         </div>
       </div>
