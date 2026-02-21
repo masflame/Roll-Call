@@ -24,29 +24,38 @@ interface AttendanceTableProps {
   globalFilter: string;
   onGlobalFilterChange: (value: string) => void;
   onEdit?: (row: AttendanceRow) => void;
+  allowedFields?: Record<string, boolean> | null;
 }
 
-function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: AttendanceTableProps) {
-  const columns = useMemo<ColumnDef<AttendanceRow>[]>(
-    () => [
-      { accessorKey: "studentNumber", header: "Student #" },
-      { accessorKey: "surname", header: "Surname" },
-      { accessorKey: "name", header: "Name" },
-      { accessorKey: "group", header: "Group" },
-      { accessorKey: "status", header: "Status" },
-      { accessorKey: "submittedAt", header: "Submitted" },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <div>
-            <button onClick={() => onEdit && onEdit(row.original)} className="text-xs text-brand-primary">Edit</button>
-          </div>
-        )
-      }
-    ],
-    [onEdit]
-  );
+function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit, allowedFields }: AttendanceTableProps) {
+  const columns = useMemo<ColumnDef<AttendanceRow>[]>(() => {
+    const cols: ColumnDef<AttendanceRow>[] = [];
+    cols.push({ accessorKey: "studentNumber", header: "Student #" });
+
+    const order = ["surname", "name", "initials", "email", "group"];
+    if (!allowedFields) {
+      order.forEach((k) => cols.push({ accessorKey: k as any, header: k.charAt(0).toUpperCase() + k.slice(1) }));
+    } else {
+      order.forEach((k) => {
+        if (allowedFields[k]) cols.push({ accessorKey: k as any, header: k.charAt(0).toUpperCase() + k.slice(1) });
+      });
+    }
+
+    cols.push({ accessorKey: "status", header: "Status" });
+    cols.push({ accessorKey: "submittedAt", header: "Submitted" });
+
+    cols.push({
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <div>
+          <button onClick={() => onEdit && onEdit(row.original)} className="text-xs text-brand-primary">Edit</button>
+        </div>
+      )
+    });
+
+    return cols;
+  }, [onEdit, allowedFields]);
 
   const table = useReactTable<AttendanceRow>({
     data,
@@ -61,8 +70,8 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: A
     <div>
       {/* Desktop table (scrollable horizontally) */}
       <div className="hidden sm:block overflow-x-auto rounded-md border border-stroke-subtle">
-        <table className="min-w-full divide-y divide-stroke-subtle text-sm">
-          <thead className="sticky top-0 bg-surfaceAlt text-xs uppercase tracking-wide text-text-muted">
+        <table className="min-w-max divide-y divide-stroke-subtle text-sm">
+          <thead className="sticky top-0 bg-surfaceAlt text-xs uppercase tracking-wide text-gray-700">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -73,19 +82,21 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: A
               </tr>
             ))}
           </thead>
+
           <tbody className="divide-y divide-stroke-subtle bg-surface">
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} className="transition hover:bg-surfaceAlt/70">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 text-sm text-text-primary">
+                  <td key={cell.id} className="px-4 py-3 text-sm text-gray-800">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
             ))}
+
             {table.getRowModel().rows.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-text-muted">
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-gray-600">
                   No attendance yet.
                 </td>
               </tr>
@@ -94,29 +105,41 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: A
         </table>
       </div>
 
-      {/* Mobile card list (kept compact) */}
-      <div className="sm:hidden space-y-3">
-        {table.getRowModel().rows.length === 0 && (
-          <div className="rounded-md border border-stroke-subtle bg-surface p-4 text-sm text-text-muted">No attendance yet.</div>
-        )}
-        {table.getRowModel().rows.map((row) => {
-          const data = row.original;
-          return (
-            <div key={row.id} className="rounded-md border border-stroke-subtle bg-surface p-3">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold">{data.studentNumber}</div>
-                <div className="text-sm text-text-muted">{data.status}</div>
-              </div>
-              <div className="mt-1 text-sm text-text-muted">{[data.surname, data.name].filter(Boolean).join(" ")}</div>
-              <div className="mt-2 flex items-center justify-between">
-                <div className="text-xs text-text-muted">{data.group}</div>
-                <div>
-                  <button onClick={() => onEdit && onEdit(data)} className="text-xs text-brand-primary">Edit</button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      {/* Mobile: horizontally-scrollable table that shows only allowed fields */}
+      <div className="sm:hidden overflow-x-auto rounded-md border border-stroke-subtle">
+        <table className="min-w-max divide-y divide-stroke-subtle text-sm">
+          <thead className="sticky top-0 bg-surfaceAlt text-xs uppercase tracking-wide text-gray-700">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id} className="px-3 py-2 text-left">
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+
+          <tbody className="divide-y divide-stroke-subtle bg-surface">
+            {table.getRowModel().rows.map((row) => (
+              <tr key={row.id} className="transition hover:bg-surfaceAlt/70">
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className="px-3 py-2 text-sm text-gray-800">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+
+            {table.getRowModel().rows.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-gray-600">
+                  No attendance yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
