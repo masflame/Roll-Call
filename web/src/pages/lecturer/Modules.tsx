@@ -107,7 +107,7 @@ function Modules() {
             <p className="text-sm text-text-muted">Manage the modules available for attendance tracking.</p>
           </div>
         </div>
-        <div className="mt-4 overflow-hidden rounded-md border border-stroke-subtle">
+        <div className="mt-4 overflow-x-auto rounded-md border border-stroke-subtle">
           <table className="min-w-full divide-y divide-stroke-subtle text-sm">
             <thead className="bg-surfaceAlt text-xs uppercase text-text-muted">
               <tr>
