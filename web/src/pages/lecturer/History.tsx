@@ -98,35 +98,35 @@ function History() {
       <PageHeader title="Attendance history" description="Review completed sessions and export records." showBack={false} noBackground />
 
       {/* Sticky filter bar */}
-      <div className="sticky top-14 z-40 bg-surface/95 border-b border-stroke-subtle">
+      <div className="sticky top-14 z-40 bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="text-sm font-semibold">Group by</div>
-            <div className="inline-flex rounded bg-white/50 p-1">
-              <button onClick={() => setGroupBy("module")} className={`px-3 py-1 text-sm ${groupBy === "module" ? "bg-surfaceAlt font-semibold" : "text-text-muted"}`}>Module</button>
-              <button onClick={() => setGroupBy("date")} className={`px-3 py-1 text-sm ${groupBy === "date" ? "bg-surfaceAlt font-semibold" : "text-text-muted"}`}>Date</button>
-              <button onClick={() => setGroupBy("status")} className={`px-3 py-1 text-sm ${groupBy === "status" ? "bg-surfaceAlt font-semibold" : "text-text-muted"}`}>Status</button>
+            <div className="inline-flex rounded bg-white p-1">
+              <button onClick={() => setGroupBy("module")} className={`px-3 py-1 text-sm ${groupBy === "module" ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-600"}`}>Module</button>
+              <button onClick={() => setGroupBy("date")} className={`px-3 py-1 text-sm ${groupBy === "date" ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-600"}`}>Date</button>
+              <button onClick={() => setGroupBy("status")} className={`px-3 py-1 text-sm ${groupBy === "status" ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-600"}`}>Status</button>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <select multiple value={selectedModules} onChange={(e) => setSelectedModules(Array.from(e.target.selectedOptions).map((o) => o.value))} className="rounded-md border px-3 py-1 text-sm">
+            <select multiple value={selectedModules} onChange={(e) => setSelectedModules(Array.from(e.target.selectedOptions).map((o) => o.value))} className="rounded-md border px-3 py-1 text-sm text-gray-900 bg-white">
               {moduleOptions.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
 
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-md border px-3 py-1 text-sm">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-md border px-3 py-1 text-sm text-gray-900 bg-white">
               <option value="all">All statuses</option>
               <option value="active">Active</option>
               <option value="closed">Closed</option>
             </select>
 
-            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="rounded-md border px-3 py-1 text-sm">
+            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="rounded-md border px-3 py-1 text-sm text-gray-900 bg-white">
               <option value="all">Any time</option>
               <option value="today">Today</option>
               <option value="week">Last 7 days</option>
             </select>
 
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search title, module, id" className="rounded-md border px-3 py-1 text-sm" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search title, module, id" className="rounded-md border px-3 py-1 text-sm text-gray-900 bg-white" />
           </div>
         </div>
       </div>
@@ -148,11 +148,11 @@ function History() {
                 <div key={headerKey} className="border-b border-stroke-subtle">
                   <div className="px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4 min-w-0">
-                      <button onClick={() => toggleGroup(headerKey)} className="text-left">
-                        <div className="text-sm font-semibold text-text-primary truncate">{moduleCode} <span className="text-xs text-text-muted">({items.length} sessions)</span></div>
-                        <div className="text-xs text-text-muted truncate">Active: {activeCount} • Total submissions: {totalSubs}</div>
-                      </button>
-                    </div>
+                          <button onClick={() => toggleGroup(headerKey)} className="text-left">
+                            <div className="text-sm font-semibold text-gray-900 truncate">{moduleCode} <span className="text-xs text-gray-600">({items.length} sessions)</span></div>
+                            <div className="text-xs text-gray-600 truncate">Active: {activeCount} • Total submissions: {totalSubs}</div>
+                          </button>
+                        </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => toggleGroup(headerKey)} className="rounded-md border px-3 py-1 text-sm">{expanded ? "Collapse" : "Expand"}</button>
                     </div>
@@ -163,13 +163,13 @@ function History() {
                       {items.map((session) => (
                         <li key={session.id} className="flex flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <p className="text-sm font-semibold text-text-primary truncate">{session.title || session.id}</p>
-                            <p className="text-xs text-text-muted">{session.createdAt}</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate">{session.title || session.id}</p>
+                            <p className="text-xs text-gray-600">{session.createdAt}</p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="rounded-md border border-stroke-subtle px-3 py-1 text-xs text-text-muted">{session.stats?.submissionsCount ?? 0} submissions</span>
-                            <span className={`rounded-md px-3 py-1 text-xs font-medium ${session.isActive ? "bg-accent-success/10 text-accent-success" : "bg-surfaceAlt text-text-muted"}`}>{session.isActive ? "Active" : "Closed"}</span>
-                            <Link to={`/history/${session.id}`} className="text-sm font-semibold text-brand-primary hover:underline">View / Export</Link>
+                            <span className="rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-600">{session.stats?.submissionsCount ?? 0} submissions</span>
+                            <span className={`rounded-md px-3 py-1 text-xs font-medium ${session.isActive ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>{session.isActive ? "Active" : "Closed"}</span>
+                            <Link to={`/history/${session.id}`} className="text-sm font-semibold text-indigo-600 hover:underline">View / Export</Link>
                           </div>
                         </li>
                       ))}
