@@ -240,7 +240,7 @@ function SessionDisplay() {
             </div>
 
             {/* RIGHT: Info */}
-            <div className="text-center lg:text-left text-gray-900">
+            <div className="text-center lg:text-left">
               <div className="space-y-7">
                 {/* Header */}
                 <div className="space-y-3">

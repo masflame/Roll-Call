@@ -733,7 +733,6 @@ function SessionLive() {
             globalFilter={filter}
             onGlobalFilterChange={setFilter}
             onEdit={openEdit}
-              allowedFields={allowedFields}
           />
         </section>
       </div>
