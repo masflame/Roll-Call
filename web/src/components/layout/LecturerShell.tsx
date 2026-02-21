@@ -369,8 +369,8 @@ function LecturerShell() {
 
       {/* Main Content */}
       <div className="lg:ml-64 min-h-screen flex flex-col">
-        {/* Mobile Header */}
-        <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
+        {/* Mobile Header (sticky) */}
+        <header className="lg:hidden sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -457,7 +457,7 @@ function LecturerShell() {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 bg-gray-50 p-4 lg:p-8">
+        <main className="flex-1 bg-gray-50 p-4 lg:p-8 pt-16 lg:pt-0">
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>
