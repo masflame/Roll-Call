@@ -10,6 +10,8 @@ export interface CreateSessionPayload {
   requiredFields: Record<string, boolean>;
   requireClassCode: boolean;
   classCodeRotationSeconds?: number;
+  offeringId?: string;
+  groupId?: string;
 }
 
 export interface AttendancePayload {
@@ -17,6 +19,9 @@ export interface AttendancePayload {
   studentNumber: string;
   classCode?: string;
   token: string;
+  screenWidth?: number;
+  screenHeight?: number;
+  timezone?: string;
   [key: string]: unknown;
 }
 
@@ -24,6 +29,8 @@ export function validateCreateSession(data: any): CreateSessionPayload {
   const moduleId = String(data?.moduleId || "").trim();
   const moduleCode = String(data?.moduleCode || "").trim();
   const title = data?.title ? String(data.title).trim() : "";
+  const offeringId = data?.offeringId ? String(data.offeringId).trim() : undefined;
+  const groupId = data?.groupId ? String(data.groupId).trim() : undefined;
   const windowSeconds = Number(data?.windowSeconds || 0);
   const requireClassCode = Boolean(data?.requireClassCode);
   const classCodeRotationSeconds = Number(data?.classCodeRotationSeconds || 30);
@@ -48,7 +55,10 @@ export function validateCreateSession(data: any): CreateSessionPayload {
     throw new HttpsError("invalid-argument", "classCodeRotationSeconds must be 30 or 60");
   }
 
-  return { moduleId, moduleCode, title, windowSeconds, requiredFields, requireClassCode, classCodeRotationSeconds };
+  const out: any = { moduleId, moduleCode, title, windowSeconds, requiredFields, requireClassCode, classCodeRotationSeconds };
+  if (offeringId) out.offeringId = offeringId;
+  if (groupId) out.groupId = groupId;
+  return out as CreateSessionPayload;
 }
 
 export function validateAttendancePayload(body: any): AttendancePayload {
@@ -66,6 +76,11 @@ export function validateAttendancePayload(body: any): AttendancePayload {
 
   const payload: AttendancePayload = { sessionId, studentNumber, token };
   if (classCode) payload.classCode = classCode;
+
+  // optional lightweight fingerprint metadata supplied by client
+  if (body?.screenWidth) payload.screenWidth = Number(body.screenWidth);
+  if (body?.screenHeight) payload.screenHeight = Number(body.screenHeight);
+  if (body?.timezone) payload.timezone = String(body.timezone).trim();
 
   ["name", "surname", "initials", "email", "group"].forEach((key) => {
     if (body?.[key]) {

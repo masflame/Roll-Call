@@ -13,7 +13,10 @@ export default function Pill({ children, tone = "neutral", ...rest }: { children
       : "bg-gray-100 text-gray-700 border border-gray-200";
 
   return (
-    <span {...rest} className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-sm font-medium ${cls}`}>
+    <span
+      {...rest}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${cls}`}
+    >
       {children}
     </span>
   );

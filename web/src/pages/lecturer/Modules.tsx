@@ -1,9 +1,12 @@
 // @ts-nocheck
 import { FormEvent, useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, query } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
+import { getDelegateMode } from "../../lib/delegate";
 import { db, auth } from "../../firebase";
+import { Card, PrimaryButton, SecondaryButton, Input } from "../../components/ui";
 import { User } from "firebase/auth";
-import PageHeader from "../../components/PageHeader";
+// PageHeader intentionally removed from page (handled by layout)
 
 interface Module {
   id: string;
@@ -13,18 +16,26 @@ interface Module {
 
 function Modules() {
   const user: User | null = auth.currentUser;
+  // delegate override
+  const delegateMode = getDelegateMode();
+  const ownerOverride = delegateMode ? delegateMode.ownerUid : null;
   const [modules, setModules] = useState<Module[]>([]);
   const [moduleCode, setModuleCode] = useState("");
   const [moduleName, setModuleName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user && !ownerOverride) return;
     const modulesRef = collection(db, "modules");
-    const unsubscribe = onSnapshot(query(modulesRef), (snapshot) => {
+    const q = ownerOverride ? query(modulesRef, where("lecturerId", "==", ownerOverride)) : query(modulesRef);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs
-        .filter((docSnap) => docSnap.data().lecturerId === user.uid)
+        .filter((docSnap) => {
+          if (ownerOverride) return true;
+          return docSnap.data().lecturerId === user.uid;
+        })
         .map((docSnap) => ({
           id: docSnap.id,
           moduleCode: docSnap.data().moduleCode as string,
@@ -33,7 +44,7 @@ function Modules() {
       setModules(data);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, ownerOverride]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -62,45 +73,37 @@ function Modules() {
 
   return (
       <div className="space-y-8">
-        <PageHeader title="Modules" description="Organise the classes you deliver this term." showBack={false} noBackground />
+      
 
-      <section className="rounded-md border border-stroke-subtle bg-surface p-6 shadow-subtle">
+      <Card>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">Add module</h2>
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
           <div>
             <label className="mb-1 block text-sm font-medium text-text-muted">Module code</label>
-            <input
-              className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base focus:border-brand-primary focus:outline-none"
+            <Input
               value={moduleCode}
-              onChange={(event) => setModuleCode(event.target.value)}
+              onChange={(event: any) => setModuleCode(event.target.value)}
               required
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-text-muted">Module name</label>
-            <input
-              className="w-full rounded-md border border-stroke-subtle px-4 py-3 text-base focus:border-brand-primary focus:outline-none"
+            <Input
               value={moduleName}
-              onChange={(event) => setModuleName(event.target.value)}
+              onChange={(event: any) => setModuleName(event.target.value)}
               placeholder="Optional"
             />
           </div>
           <div className="md:col-span-2 flex items-center justify-between">
             {error && <p className="text-sm text-accent-error">{error}</p>}
             <div className="ml-auto flex gap-3">
-              <button
-                type="submit"
-                className="rounded-lg bg-brand-primary px-5 py-3 text-base font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:bg-stroke-strong"
-                disabled={loading}
-              >
-                {loading ? "Saving..." : "Save module"}
-              </button>
+              <PrimaryButton type="submit" disabled={loading}>{loading ? "Saving..." : "Save module"}</PrimaryButton>
             </div>
           </div>
         </form>
-      </section>
+      </Card>
 
-      <section className="rounded-md border border-stroke-subtle bg-surface p-6 shadow-subtle">
+      <Card>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-text-primary">Module catalogue</h2>
@@ -127,13 +130,8 @@ function Modules() {
                   <td className="px-4 py-2 text-text-muted">--</td>
                   <td className="px-4 py-2 text-right">
                     <div className="inline-flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="rounded-md border border-stroke-subtle px-3 py-1 text-xs font-medium text-text-muted transition hover:bg-surfaceAlt"
-                        onClick={() => handleDelete(mod.id)}
-                      >
-                        Remove
-                      </button>
+                      <SecondaryButton onClick={() => handleDelete(mod.id)} className="!px-3 !py-1 !text-xs">Remove</SecondaryButton>
+                      <SecondaryButton onClick={() => navigate(`/offerings/manage?moduleId=${mod.id}`)} className="!px-3 !py-1 !text-xs">Configure</SecondaryButton>
                     </div>
                   </td>
                 </tr>
@@ -148,7 +146,7 @@ function Modules() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

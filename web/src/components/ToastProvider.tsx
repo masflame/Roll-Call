@@ -38,17 +38,17 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
         <div className="w-full max-w-md px-4">
           <div className="space-y-3">
             {toasts.map((t) => (
-              <div
+              <Card
                 key={t.id}
-                role="status"
-                className={`pointer-events-auto rounded-md p-3 shadow-md transform transition-all duration-150 ${t.variant === "error" ? "bg-red-50 border border-red-200 text-red-800" : t.variant === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-white border"}`}
+                variant="panel"
+                className={`pointer-events-auto p-3 shadow-md transform transition-all duration-150 ${t.variant === "error" ? "bg-red-50 border border-red-200 text-red-800" : t.variant === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-white border"}`}
                 style={{ animation: "fade-in 160ms ease-out" }}
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-1 text-sm">{t.message}</div>
                   <button onClick={() => setToasts((s) => s.filter((x) => x.id !== t.id))} className="text-xs text-text-muted">Close</button>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>

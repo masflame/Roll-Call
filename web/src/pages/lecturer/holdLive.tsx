@@ -25,6 +25,7 @@ import {
 import AttendanceTable, { AttendanceRow } from "../../components/AttendanceTable";
 import ExportButtons from "../../components/ExportButtons";
 import { db, functions } from "../../firebase";
+import { getDelegateMode } from "../../lib/delegate";
 import { useToast } from "../../components/ToastProvider";
 
 interface SessionData {
@@ -125,6 +126,7 @@ function SessionLive() {
   const [extendLoading, setExtendLoading] = useState<number | null>(null);
   const [renewWindow, setRenewWindow] = useState<number | null>(null);
   const { showToast } = useToast();
+  const delegateMode = getDelegateMode();
 
   // Timer for countdown
   useEffect(() => {
@@ -181,7 +183,9 @@ function SessionLive() {
       if (!sessionId || !session?.settings?.requireClassCode) return;
       try {
         const callable = httpsCallable(functions, "getSessionPin");
-        const res: any = await callable({ sessionId });
+        const payload: any = { sessionId };
+        if (delegateMode) payload.accessId = delegateMode.accessId;
+        const res: any = await callable(payload);
         if (!mounted) return;
         setClassCodePin(res.data?.pin || null);
         setPinRotationSeconds(Number(res.data?.rotationSeconds || 30));
@@ -259,7 +263,9 @@ function SessionLive() {
     setActionError(null);
     try {
       const callable = httpsCallable(functions, "renewSessionQr");
-      await callable({ sessionId, windowSeconds: chosenRenewWindow });
+      const payload: any = { sessionId, windowSeconds: chosenRenewWindow };
+      if (delegateMode) payload.accessId = delegateMode.accessId;
+      await callable(payload);
       showToast({ message: "QR code renewed successfully", variant: "success" });
     } catch (err: any) {
       setActionError(err.message || "Failed to renew QR code");
@@ -275,7 +281,9 @@ function SessionLive() {
     setActionError(null);
     try {
       const callable = httpsCallable(functions, "extendSessionWindow");
-      await callable({ sessionId, extensionSeconds: seconds });
+      const payload: any = { sessionId, extensionSeconds: seconds };
+      if (delegateMode) payload.accessId = delegateMode.accessId;
+      await callable(payload);
       showToast({ message: `Session extended by ${seconds} seconds`, variant: "success" });
     } catch (err: any) {
       setActionError(err.message || "Failed to extend session");
@@ -291,7 +299,9 @@ function SessionLive() {
     setActionError(null);
     try {
       const callable = httpsCallable(functions, "endSession");
-      await callable({ sessionId });
+      const payload: any = { sessionId };
+      if (delegateMode) payload.accessId = delegateMode.accessId;
+      await callable(payload);
       setConfirmEnding(false);
       showToast({ message: "Session ended successfully", variant: "success" });
     } catch (err: any) {

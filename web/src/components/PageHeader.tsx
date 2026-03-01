@@ -12,9 +12,8 @@ interface PageHeaderProps {
 
 function PageHeader({ title, description, action, showBack = true, noBackground = false }: PageHeaderProps) {
   const navigate = useNavigate();
-  const outerClass = noBackground
-    ? "hidden lg:block"
-    : "hidden lg:block bg-surface/95 border-b border-stroke-subtle";
+  // Render header container only when needed and avoid hidden/block breakpoint mismatch
+  const outerClass = noBackground ? "" : "bg-surface/95 border-b border-stroke-subtle";
 
   const innerClass = noBackground ? "max-w-6xl mx-auto px-4 py-0" : "max-w-6xl mx-auto px-4 py-3";
 
@@ -32,7 +31,7 @@ function PageHeader({ title, description, action, showBack = true, noBackground 
             </button>
           )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex items-center gap-4 lg:hidden">
+            <div className="flex items-center gap-4">
               <div className="w-1.5 h-8 rounded bg-brand-primary/90" />
               <div>
                 <h1 className="text-2xl font-semibold text-text-primary">{title}</h1>

@@ -1,8 +1,10 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
-import PageHeader from "../../components/PageHeader";
+// PageHeader removed; heading now part of layout
 import { auth, db } from "../../firebase";
+import { PrimaryButton, Card } from "../../components/ui";
 
 interface LecturerProfile {
   firstName?: string;
@@ -18,6 +20,7 @@ function Profile() {
   const [profile, setProfile] = useState<LecturerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
@@ -68,8 +71,7 @@ function Profile() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title="My profile" description="Review your lecturer details." showBack={false} />
-      <section className="rounded-md border border-stroke-subtle bg-surface p-6 shadow-subtle">
+      <Card>
         {loading ? (
           <p className="text-sm text-text-muted">Loading profile...</p>
         ) : error ? (
@@ -94,7 +96,31 @@ function Profile() {
             </div>
           </dl>
         )}
-      </section>
+      </Card>
+
+      <Card className="shadow-none">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">Compliance & Exports</h3>
+            <p className="mt-1 text-sm text-text-muted">Generate audit and accreditation export bundles (CSV/PDF).</p>
+          </div>
+          <div>
+            <PrimaryButton onClick={() => navigate("/settings/compliance")} className="!px-4 !py-2.5">Open</PrimaryButton>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="shadow-none">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">Account</h3>
+            <p className="mt-1 text-sm text-text-muted">Manage email and password for your account.</p>
+          </div>
+          <div>
+            <PrimaryButton onClick={() => navigate("/settings/account")} className="!px-4 !py-2.5">Open</PrimaryButton>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

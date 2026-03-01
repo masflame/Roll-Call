@@ -5,14 +5,28 @@
    ======================================================================= */
 
 // @ts-nocheck
-import React3, { useEffect as useEffect3, useMemo as useMemo3, useState as useState3 } from "react";
-import { doc, getDoc, collection as collection3, getDocs as getDocs3 } from "firebase/firestore";
+import React3, { useEffect as useEffect3, useMemo as useMemo3, useState as useState3, useRef as useRef3 } from "react";
+import { Info } from "lucide-react";
+import { doc, getDoc, collection as collection3, getDocs as getDocs3, query, where } from "firebase/firestore";
 import { db as db3 } from "../firebase";
 import { Pill } from "./ui";
 
-function MetricCard({ label, value, hint, action }: any) {
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+
+import { Card } from "./ui";
+
+function MetricCard({ label, value, hint, action, visible = true, style }: any) {
   return (
-    <div className="rounded-2xl border border-stroke-subtle bg-surface p-4 shadow-subtle">
+    <Card
+      className={cx(
+        "bg-white border border-gray-200 shadow-subtle transition-all duration-300 transform",
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+      )}
+      style={style}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
@@ -23,7 +37,7 @@ function MetricCard({ label, value, hint, action }: any) {
         </div>
         {action ? <div>{action}</div> : null}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -50,11 +64,16 @@ function SectionTitle({ title, subtitle, right }: any) {
   );
 }
 
-export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
+export function ModuleAnalyticsView({ moduleId, offeringId, groupId }: { moduleId: string; offeringId?: string | null; groupId?: string | null }) {
   const [module, setModule] = useState3<any>(null);
   const [roster, setRoster] = useState3<any[]>([]);
   const [students, setStudents] = useState3<any[]>([]);
+  const [integrityFlagTotal, setIntegrityFlagTotal] = useState3<number>(0);
   const [loading, setLoading] = useState3(true);
+  const [filteredSessions, setFilteredSessions] = useState3<any[]>([]);
+  const [filteredTotals, setFilteredTotals] = useState3<any>({ sessions: 0, submissions: 0 });
+  const [contentVisible, setContentVisible] = useState3(false);
+  const contentTimer = useRef3<number | null>(null);
 
   useEffect3(() => {
     let mounted = true;
@@ -87,10 +106,77 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
       }
     })();
 
+    // trigger content reveal animation
+    setContentVisible(false);
+    if (contentTimer.current) window.clearTimeout(contentTimer.current as number);
+    contentTimer.current = window.setTimeout(() => setContentVisible(true), 30) as unknown as number;
+
+    return () => {
+      mounted = false;
+      if (contentTimer.current) window.clearTimeout(contentTimer.current as number);
+    };
+  }, [moduleId]);
+
+  // If offeringId/groupId filters are provided, aggregate session-level stats for the filtered set
+  useEffect3(() => {
+    let mounted = true;
+    (async () => {
+      if (!moduleId) return;
+
+      try {
+        const sessionsRef = collection3(db3, "sessions");
+        // Build base query
+        let q: any = query(sessionsRef, where("moduleId", "==", moduleId));
+        if (offeringId && groupId) {
+          q = query(sessionsRef, where("moduleId", "==", moduleId), where("offeringId", "==", offeringId), where("groupId", "==", groupId));
+        } else if (offeringId) {
+          q = query(sessionsRef, where("moduleId", "==", moduleId), where("offeringId", "==", offeringId));
+        } else if (groupId) {
+          q = query(sessionsRef, where("moduleId", "==", moduleId), where("groupId", "==", groupId));
+        }
+
+        const snap = await getDocs3(q);
+        const sessions: any[] = [];
+        let submissions = 0;
+        snap.forEach((s: any) => {
+          const data = s.data();
+          const sc = Number((data?.stats && data.stats.submissionsCount) || 0);
+          submissions += sc;
+          sessions.push({ sessionId: s.id, ...data });
+        });
+
+        // fetch sessionStats for integrity flags (velocityFlags) for the filtered sessions
+        let integrityFlagsTotal = 0;
+        try {
+          const statPromises = sessions.map((s) => getDoc(doc(db3, "sessionStats", s.sessionId)));
+          const statSnaps = await Promise.all(statPromises);
+          statSnaps.forEach((ss) => {
+            if (ss && ss.exists()) {
+              const d = ss.data() as any;
+              integrityFlagsTotal += Number(d?.proxyFlags || d?.velocityFlags || 0);
+            }
+          });
+        } catch (err) {
+          // ignore
+        }
+
+        if (mounted) {
+          setFilteredSessions(sessions);
+          setFilteredTotals({ sessions: sessions.length, submissions });
+          setIntegrityFlagTotal(integrityFlagsTotal);
+        }
+      } catch (err) {
+        if (mounted) {
+          setFilteredSessions([]);
+          setFilteredTotals({ sessions: 0, submissions: 0 });
+        }
+      }
+    })();
+
     return () => {
       mounted = false;
     };
-  }, [moduleId]);
+  }, [moduleId, offeringId, groupId]);
 
   const totalSessions = Number(module?.sessionsCount || 0);
 
@@ -187,34 +273,37 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
 
   if (!moduleId) {
     return (
-      <div className="rounded-2xl border border-stroke-subtle bg-surface p-6 text-sm text-text-muted shadow-subtle">
+      <Card className="text-sm text-text-muted" variant="panel">
         Select a module to view analytics.
-      </div>
+      </Card>
     );
   }
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-stroke-subtle bg-surface p-6 text-sm text-text-muted shadow-subtle">
+      <Card className="text-sm text-text-muted" variant="panel">
         Loading module analytics…
-      </div>
+      </Card>
     );
   }
 
   if (!module) {
     return (
-      <div className="rounded-2xl border border-stroke-subtle bg-surface p-6 text-sm text-text-muted shadow-subtle">
+      <Card className="text-sm text-text-muted" variant="panel">
         No stats available for this module yet.
-      </div>
+      </Card>
     );
   }
 
   const displayName = module.moduleCode || module.moduleTitle || module.moduleId || moduleId;
   const displayTitle = module.moduleTitle || null;
 
-  const avgAttendance = Number(module.avgAttendance || 0);
-  const avgAttendanceDisplay = avgAttendance.toFixed(2);
-  const medianCheckin = module.medianCheckinMinutes ?? null;
+  // If filtered totals exist, prefer them for the filtered view
+  const useFiltered = Boolean(offeringId || groupId) && filteredTotals && filteredTotals.sessions > 0;
+
+  const avgAttendance = useFiltered ? (filteredTotals.submissions / Math.max(1, filteredTotals.sessions)) : Number(module.avgAttendance || 0);
+  const avgAttendanceDisplay = (isFinite(avgAttendance) ? Number(avgAttendance) : 0).toFixed(2);
+  const medianCheckin = useFiltered ? null : module.medianCheckinMinutes ?? null;
   const medianCheckinDisplay = typeof medianCheckin === "number" ? medianCheckin.toFixed(2) : "—";
 
   const heatmapEntries = Object.entries(module.heatmap || {});
@@ -222,39 +311,35 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
   return (
     <div className="space-y-6">
       {/* Module header */}
-      <div className="rounded-2xl border border-stroke-subtle bg-surface p-5 shadow-subtle">
+      <Card className="bg-white border border-gray-200 shadow-subtle p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
           Module
         </p>
         <div className="mt-1 text-xl font-semibold text-text-primary">{displayName}</div>
         {displayTitle ? <div className="mt-1 text-sm text-text-muted">{displayTitle}</div> : null}
-      </div>
+      </Card>
 
       {/* Metrics */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard
-          label="Avg attendance"
-          value={avgAttendanceDisplay}
-          hint={`Sessions: ${totalSessions}`}
-        />
-        <MetricCard
-          label="Median check-in (min)"
-          value={medianCheckinDisplay}
-          hint="Completion curve below."
-        />
-        <MetricCard
-          label="Export"
-          value="CSV"
-          hint="Download a roster summary for this module."
-          action={
+        {[
+          {
+            label: "Avg attendance",
+            value: avgAttendanceDisplay,
+            hint: useFiltered ? `Sessions (filtered): ${filteredTotals.sessions}` : `Sessions: ${totalSessions}`,
+          },
+          { label: "Median check-in (min)", value: medianCheckinDisplay, hint: "Completion curve below." },
+          { label: "Integrity flags", value: String(integrityFlagTotal || 0), hint: useFiltered ? `Filtered sessions: ${filteredTotals.sessions}` : `Across module sessions` },
+          { label: "Export", value: "CSV", hint: "Download a roster summary for this module.", action: (
             <button
               onClick={downloadCsv}
-              className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-text-onBrand shadow-brand transition hover:bg-brand-primary/90"
+              className="rounded-full bg-brand-primary px-4 py-2 text-sm font-semibold text-text-onBrand transition hover:bg-brand-primary/90"
             >
               Export CSV
             </button>
-          }
-        />
+          ) }
+        ].map((m, idx) => (
+          <MetricCard key={m.label} {...m} visible={contentVisible} style={{ transitionDelay: `${idx * 80}ms` }} />
+        ))}
       </div>
 
       {/* Curve + Trend + Heatmap + Absentees */}
@@ -270,11 +355,11 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
                   {weeklyPoints.length === 0 ? (
                 <div className="text-sm text-text-muted">No weekly data.</div>
               ) : (
-                weeklyPoints.map((p) => {
+                weeklyPoints.map((p, idx) => {
                   const max = Math.max(...weeklyPoints.map((x) => x.avg), 1);
                       const h = Math.round((p.avg / max) * 100);
                   return (
-                    <div key={p.week} className="flex-1 text-center">
+                    <div key={p.week} className={cx("flex-1 text-center transition-all duration-300 transform", contentVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")} style={{ transitionDelay: `${idx * 40}ms` }}>
                       <div className="mx-auto w-full rounded-t bg-brand-soft" style={{ height: `${h}%` }} />
                       <div className="mt-2 text-[11px] text-text-muted">{p.week}</div>
                     </div>
@@ -289,11 +374,11 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
               title="Heatmap"
               subtitle="Average attendance by day + hour bucket."
             />
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {heatmapEntries.length === 0 ? (
                 <div className="col-span-full text-sm text-text-muted">No heatmap data.</div>
               ) : (
-                heatmapEntries.map(([k, v]: any) => {
+                heatmapEntries.map(([k, v]: any, idx) => {
                   const avg = v.sessions ? Number((v.totalAttendance / v.sessions)) : 0;
                   const avgDisplay = avg.toFixed(2);
                   const base = Number(module.avgAttendance || 1);
@@ -304,7 +389,7 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
                   const cellClass = `rounded-xl border border-stroke-subtle p-3 ${isFaint ? "bg-surfaceAlt" : ""}`;
 
                   return (
-                    <div key={k} className={cellClass} style={cellStyle}>
+                    <div key={k} className={cx(cellClass, "transition-all duration-300 transform", contentVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")} style={{ ...(cellStyle || {}), transitionDelay: `${idx * 30}ms` }}>
                       <div className={`text-xs font-semibold ${isFaint ? "text-text-primary" : "text-white"}`}>{k.replace("_", " ")}</div>
                       <div className={`mt-1 text-xs ${isFaint ? "text-text-muted" : "text-white/90"}`}>Avg {avgDisplay}</div>
                     </div>
@@ -313,7 +398,79 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
               )}
             </div>
           </div>
+
+          {/* Students list (match heatmap width) */}
+          <div className="rounded-2xl border border-stroke-subtle bg-surface p-5 shadow-subtle">
+            <SectionTitle
+              title="Students"
+              subtitle="Attendance banding"
+              right={
+                <div className="flex items-center gap-3">
+                  <InfoLegend />
+                  <Pill>{merged.length}</Pill>
+                </div>
+              }
+            />
+
+            <div className="mt-4 divide-y divide-stroke-subtle rounded-2xl border border-stroke-subtle">
+              {merged.length === 0 ? (
+                <div className="p-4 text-sm text-text-muted">No students found. Upload roster or wait for recompute.</div>
+              ) : (
+                merged.map((s, idx) => {
+                  const rate = totalSessions ? s.attended / totalSessions : null;
+                  const band =
+                    rate === null ? "Unknown" : rate >= 0.8 ? "Green" : rate >= 0.6 ? "Amber" : "Red";
+                  const tone = band === "Green" ? "success" : band === "Amber" ? "warning" : band === "Red" ? "danger" : "neutral";
+
+                  return (
+                    <div key={s.studentNumber} className={cx("flex items-center justify-between gap-4 p-3 hover:bg-surfaceAlt transition-all duration-300 transform", contentVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-3")} style={{ transitionDelay: `${idx * 18}ms` }}>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-text-primary">
+                          {s.studentNumber}{s.name ? <span className="text-text-muted"> — {s.name}</span> : null}{s.surname ? <span className="text-text-muted"> {s.surname}</span> : null}
+                        </div>
+                        <div className="mt-1 text-xs text-text-muted">Attended: {s.attended} · Late: {s.late} · Absent: {s.absent ?? "—"}</div>
+                      </div>
+                      <Pill tone={tone}>{band}</Pill>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Group comparisons when offering selected */}
+        {offeringId ? (
+          <div className="space-y-6 lg:col-span-1">
+            <div className="rounded-2xl border border-stroke-subtle bg-surface p-5 shadow-subtle">
+              <SectionTitle title="By-group comparison" subtitle="Compare total submissions per group" />
+              <div className="mt-4 space-y-2">
+                {(() => {
+                  // compute group aggregates from filteredSessions
+                  const map: Record<string, { sessions: number; submissions: number }> = {};
+                  filteredSessions.forEach((s) => {
+                    const gid = s.groupId || "__ungrouped";
+                    if (!map[gid]) map[gid] = { sessions: 0, submissions: 0 };
+                    map[gid].sessions += 1;
+                    map[gid].submissions += Number((s.stats && s.stats.submissionsCount) || 0);
+                  });
+
+                  const rows = Object.entries(map).sort((a, b) => b[1].submissions - a[1].submissions);
+                  if (rows.length === 0) return <div className="text-sm text-text-muted">No sessions for this offering.</div>;
+                  return rows.map(([gid, val]) => (
+                    <div key={gid} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-text-primary">{gid === "__ungrouped" ? "Ungrouped" : gid}</div>
+                        <div className="mt-1 text-xs text-text-muted">Sessions: {val.sessions}</div>
+                      </div>
+                      <div className="tabular-nums text-sm font-semibold">{val.submissions}</div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Right: Curve + absentees */}
         <div className="space-y-6">
@@ -368,50 +525,33 @@ export function ModuleAnalyticsView({ moduleId }: { moduleId: string }) {
         </div>
       </div>
 
-      {/* Students list */}
-        <div className="rounded-2xl border border-stroke-subtle bg-surface p-5 shadow-subtle">
-        <SectionTitle
-          title="Students"
-          subtitle="Attendance banding (Green/Amber/Red) based on attended sessions."
-          right={
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:block text-xs text-text-muted">Green ≥80% · Amber 60–79% · Red &lt;60% (Red = low attendance)</div>
-              <Pill>{merged.length}</Pill>
-            </div>
-          }
-        />
+      
+    </div>
+  );
+}
 
-        <div className="mt-4 divide-y divide-stroke-subtle rounded-2xl border border-stroke-subtle">
-          {merged.length === 0 ? (
-            <div className="p-4 text-sm text-text-muted">
-              No students found. Upload roster or wait for recompute.
-            </div>
-          ) : (
-              merged.map((s) => {
-              const rate = totalSessions ? s.attended / totalSessions : null;
-              const band =
-                rate === null ? "Unknown" : rate >= 0.8 ? "Green" : rate >= 0.6 ? "Amber" : "Red";
-              const tone = band === "Green" ? "success" : band === "Amber" ? "warning" : band === "Red" ? "danger" : "neutral";
+function InfoLegend() {
+  const [open, setOpen] = useState3(false);
+  const label = "Green ≥80% · Amber 60–79% · Red <60% (Red = low attendance)";
 
-              return (
-                <div key={s.studentNumber} className="flex items-center justify-between gap-4 p-4 hover:bg-surfaceAlt">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-text-primary">
-                      {s.studentNumber}
-                      {s.name ? <span className="text-text-muted"> — {s.name}</span> : null}
-                      {s.surname ? <span className="text-text-muted"> {s.surname}</span> : null}
-                    </div>
-                    <div className="mt-1 text-xs text-text-muted">
-                      Attended: {s.attended} · Late: {s.late} · Absent: {s.absent ?? "—"}
-                    </div>
-                  </div>
-                  <Pill tone={tone}>{band}</Pill>
-                </div>
-              );
-            })
-          )}
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        aria-label="Legend"
+        className="rounded-full p-1 text-xs text-text-muted hover:bg-surfaceAlt"
+        title={label}
+      >
+        <Info className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-64 rounded-md bg-white border border-stroke-subtle p-3 text-sm text-text-muted shadow-lg z-20">
+          {label}
         </div>
-      </div>
+      )}
     </div>
   );
 }

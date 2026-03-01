@@ -1,10 +1,12 @@
 // @ts-nocheck
 import { useEffect, useMemo, useState, useCallback } from "react";
+import ScrollReveal from "../../components/ScrollReveal";
 import { useParams } from "react-router-dom";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { QRCodeCanvas } from "qrcode.react";
 import { db, functions } from "../../firebase";
+import { getDelegateMode } from "../../lib/delegate";
 import { Clock, QrCode, Key, AlertCircle, CheckCircle, XCircle, Users } from "lucide-react";
 
 interface SessionSnapshot {
@@ -125,12 +127,15 @@ function SessionDisplay() {
   useEffect(() => {
     let timer: number | null = null;
     let mounted = true;
+    const delegateMode = getDelegateMode();
 
     async function fetchPin() {
       if (!sessionId || !session?.isActive || !session?.settings?.requireClassCode) return;
       try {
         const callable = httpsCallable(functions, "getSessionPin");
-        const res: any = await callable({ sessionId });
+        const payload: any = { sessionId };
+        if (delegateMode) payload.accessId = delegateMode.accessId;
+        const res: any = await callable(payload);
         if (!mounted) return;
         setClassCodePin(res.data?.pin || null);
         setPinRotationSeconds(Number(res.data?.rotationSeconds || 30));
@@ -202,129 +207,128 @@ function SessionDisplay() {
       <div className="relative min-h-screen flex items-center justify-center p-6">
         <div className="max-w-6xl w-full">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
-            {/* LEFT: QR */}
-            <div className="flex flex-col items-center w-full">
-              <div className="relative">
-                <div className="absolute -inset-5 bg-gradient-to-r from-blue-500/20 to-emerald-500/20 rounded-3xl blur-2xl" />
+            <ScrollReveal className="flex flex-col items-center w-full" stagger={30}>
+              <div className="flex flex-col items-center w-full">
+                <div className="relative">
+                  <div className="absolute -inset-5 bg-gradient-to-r from-blue-500/20 to-emerald-500/20 rounded-3xl blur-2xl" />
 
-                <div className="relative bg-white rounded-2xl p-4 shadow-2xl w-full max-w-[380px]">
-                  {canShowQr && qrUrl ? (
-                    <div className="w-full">
-                      <QRCodeCanvas value={qrUrl} size={380} includeMargin level="H" className="rounded-lg" style={{ width: '100%', height: 'auto' }} />
-                    </div>
-                  ) : (
-                    <div className="w-full aspect-square flex flex-col items-center justify-center bg-gray-100 rounded-lg" style={{ maxWidth: 380 }}>
-                      <QrCode className="h-16 w-16 text-gray-400 mb-3" />
-                      <span className="text-gray-500 font-medium">
-                        {hasEnded ? "Session ended" : isExpired ? "QR expired" : "Waiting for QR..."}
+                  <div className="relative bg-white rounded-2xl p-4 shadow-2xl w-full max-w-[380px]">
+                    {canShowQr && qrUrl ? (
+                      <div className="w-full">
+                        <QRCodeCanvas value={qrUrl} size={380} includeMargin level="H" className="rounded-lg" style={{ width: '100%', height: 'auto' }} />
+                      </div>
+                    ) : (
+                      <div className="w-full aspect-square flex flex-col items-center justify-center bg-gray-100 rounded-lg" style={{ maxWidth: 380 }}>
+                        <QrCode className="h-16 w-16 text-gray-400 mb-3" />
+                        <span className="text-gray-500 font-medium">
+                          {hasEnded ? "Session ended" : isExpired ? "QR expired" : "Waiting for QR..."}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {isLive ? (
+                    <div className="absolute -top-2 -right-2 flex items-center gap-2 bg-emerald-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
                       </span>
+                      LIVE
                     </div>
-                  )}
-                </div>
-
-                {isLive ? (
-                  <div className="absolute -top-2 -right-2 flex items-center gap-2 bg-emerald-500 text-white px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-                    </span>
-                    LIVE
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Simple caption */}
-              <div className="mt-5 w-full text-center">
-                <p className="text-sm text-gray-300">Scan the QR code to submit attendance</p>
-              </div>
-            </div>
-
-            {/* RIGHT: Info */}
-            <div className="text-center lg:text-left">
-              <div className="space-y-7">
-                {/* Header */}
-                <div className="space-y-3">
-                  <div className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold w-fit mx-auto lg:mx-0 border-white/10 bg-white/5">
-                    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 ${statusBadge.color}`}>
-                      <StatusIcon className="h-4 w-4" />
-                      {statusBadge.label}
-                    </span>
-
-                    {/* subtle submissions chip (LIVE + ENDED) */}
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/85">
-                      <Users className="h-4 w-4 opacity-80" />
-                      <span className="tabular-nums">{submissionsCount}</span>
-                      <span className="text-white/60">submissions</span>
-                    </span>
-                  </div>
-
-                  <h1 className="text-4xl lg:text-5xl font-bold text-white">
-                    {session?.moduleCode || "Session"}
-                  </h1>
-                  {session?.title ? (
-                    <p className="text-lg text-gray-300">{session.title}</p>
                   ) : null}
                 </div>
 
-                {/* Timer */}
-                {isLive ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center lg:justify-start gap-3">
-                      <Clock className="h-6 w-6 text-gray-300" />
-                      <span className="text-6xl lg:text-7xl font-bold text-white tabular-nums">
-                        {formatCountdown(secondsRemaining)}
-                      </span>
-                    </div>
-
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-1000"
-                        style={{ width: `${progressPercentage}%` }}
-                      />
-                    </div>
-
-                    <p className="text-sm text-gray-400">
-                      Submit before the timer reaches zero.
-                    </p>
-                  </div>
-                ) : null}
-
-                {/* PIN */}
-                {showPin ? (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">
-                      Class entry code
-                    </p>
-                    <div className="inline-flex items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-4">
-                      <Key className="h-6 w-6 text-gray-300" />
-                      <span className="text-4xl lg:text-5xl font-mono font-bold text-white tracking-[0.25em]">
-                        {classCodePin || privateData.classCode}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Code refreshes every {pinRotationSeconds} seconds
-                    </p>
-                  </div>
-                ) : null}
-
-                {/* End / Expired messaging */}
-                {hasEnded ? (
-                  <div className="mt-2 p-6 bg-white/5 border border-white/10 rounded-2xl">
-                    <p className="text-lg text-gray-200 font-semibold">Session ended</p>
-                    <p className="mt-2 text-sm text-gray-400">
-                      Final submissions: <span className="text-white font-semibold">{submissionsCount}</span>
-                    </p>
-                  </div>
-                ) : !hasEnded && isExpired ? (
-                  <div className="mt-2 p-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-                    <p className="text-lg text-amber-200 font-semibold">QR expired</p>
-                    <p className="mt-2 text-sm text-amber-200/70">
-                      Please wait for the instructor to renew it.
-                    </p>
-                  </div>
-                ) : null}
+                <div className="mt-5 w-full text-center">
+                  <p className="text-sm text-gray-300">Scan the QR code to submit attendance</p>
+                </div>
               </div>
-            </div>
+            </ScrollReveal>
+
+            <ScrollReveal className="text-center lg:text-left" stagger={30}>
+              <div className="text-center lg:text-left">
+                <div className="space-y-7">
+                  <div className="space-y-3">
+                    <div className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold w-fit mx-auto lg:mx-0 border-white/10 bg-white/5">
+                      <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 ${statusBadge.color}`}>
+                        <StatusIcon className="h-4 w-4" />
+                        {statusBadge.label}
+                      </span>
+
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/85">
+                        <Users className="h-4 w-4 opacity-80" />
+                        <span className="tabular-nums">{submissionsCount}</span>
+                        <span className="text-white/60">submissions</span>
+                      </span>
+                    </div>
+
+                    <h1 className="text-4xl lg:text-5xl font-bold text-white">
+                      {session?.moduleCode || "Session"}
+                    </h1>
+                    {session?.title ? (
+                      <p className="text-lg text-gray-300">{session.title}</p>
+                    ) : null}
+                  </div>
+
+                  {/* Timer */}
+                  {isLive ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center lg:justify-start gap-3">
+                        <Clock className="h-6 w-6 text-gray-300" />
+                        <span className="text-6xl lg:text-7xl font-bold text-white tabular-nums">
+                          {formatCountdown(secondsRemaining)}
+                        </span>
+                      </div>
+
+                      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-1000"
+                          style={{ width: `${progressPercentage}%` }}
+                        />
+                      </div>
+
+                      <p className="text-sm text-gray-400">
+                        Submit before the timer reaches zero.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* PIN */}
+                  {showPin ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+                        Class entry code
+                      </p>
+                      <div className="inline-flex items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-4">
+                        <Key className="h-6 w-6 text-gray-300" />
+                        <span className="text-4xl lg:text-5xl font-mono font-bold text-white tracking-[0.25em]">
+                          {classCodePin || privateData.classCode}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Code refreshes every {pinRotationSeconds} seconds
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* End / Expired messaging */}
+                  {hasEnded ? (
+                    <div className="mt-2 p-6 bg-white/5 border border-white/10 rounded-2xl">
+                      <p className="text-lg text-gray-200 font-semibold">Session ended</p>
+                      <p className="mt-2 text-sm text-gray-400">
+                        Final submissions: <span className="text-white font-semibold">{submissionsCount}</span>
+                      </p>
+                    </div>
+                  ) : !hasEnded && isExpired ? (
+                    <div className="mt-2 p-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+                      <p className="text-lg text-amber-200 font-semibold">QR expired</p>
+                      <p className="mt-2 text-sm text-amber-200/70">
+                        Please wait for the instructor to renew it.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </ScrollReveal>
           </div>
         </div>
       </div>

@@ -1,13 +1,15 @@
 // @ts-nocheck
 import { useEffect, useMemo, useState, useCallback } from "react";
+import ScrollReveal from "../../components/ScrollReveal";
 import { useLocation, useParams } from "react-router-dom";
-import { collection, doc, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, orderBy, getDocs } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { QRCodeCanvas } from "qrcode.react";
 import { Search, Timer, Users, Copy, CheckCircle, RefreshCw } from "lucide-react";
 import AttendanceTable, { AttendanceRow } from "../../components/AttendanceTable";
 import ExportButtons from "../../components/ExportButtons";
 import { db, functions } from "../../firebase";
+import { getDelegateMode } from "../../lib/delegate";
 import { useToast } from "../../components/ToastProvider";
 
 interface SessionData {
@@ -72,28 +74,69 @@ function ModalShell({
   children: any;
   onClose: () => void;
 }) {
+  const [visible, setVisible] = useState(false);
+  // animate in on mount
+  useEffect(() => {
+    const t = window.setTimeout(() => setVisible(true), 10);
+    return () => clearTimeout(t);
+  }, []);
+
+  // allow Escape to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setVisible(false);
+        setTimeout(() => onClose(), 340);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const close = () => {
+    setVisible(false);
+    setTimeout(() => onClose(), 340);
+  };
+
+  const CONTENT_TRANS = "transform 340ms cubic-bezier(.2,.9,.25,1), opacity 260ms cubic-bezier(.2,.9,.25,1)";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-stroke-subtle bg-surface shadow-subtle">
+    <div
+      className={cx(
+        "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm",
+        visible ? "opacity-100" : "opacity-0"
+      )}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+    >
+      <ScrollReveal
+        className={cx(
+          "w-full max-w-4xl rounded-2xl border border-stroke-subtle bg-surface shadow-subtle",
+          visible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-6 scale-[0.985]"
+        )}
+        duration={320}
+        delay={20}
+        style={{ transition: CONTENT_TRANS }}
+      >
         <div className="border-b border-stroke-subtle px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-base font-semibold text-text-primary">{title}</h3>
-              {description ? (
-                <p className="mt-1 text-sm text-text-muted">{description}</p>
-              ) : null}
+              {description ? <p className="mt-1 text-sm text-text-muted">{description}</p> : null}
             </div>
             <button
               className="rounded-lg px-2 py-1 text-sm font-semibold text-text-muted hover:bg-surfaceAlt"
-              onClick={onClose}
+              onClick={close}
               aria-label="Close"
             >
               ✕
             </button>
           </div>
         </div>
+
         <div className="px-5 py-4">{children}</div>
-      </div>
+      </ScrollReveal>
     </div>
   );
 }
@@ -218,6 +261,38 @@ function SessionLive() {
   const [pinRotationSeconds, setPinRotationSeconds] = useState<number>(30);
 
   const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
+  const [flags, setFlags] = useState<any[]>([]);
+  const [showFlagsModal, setShowFlagsModal] = useState(false);
+  const [flagDetails, setFlagDetails] = useState<any>({ byFingerprint: {}, byIp: {} });
+
+  const handleOpenIntegrity = async () => {
+    console.log("opening integrity details");
+    setShowFlagsModal(true);
+    try {
+      const attSnap = await getDocs(collection(db, "sessions", sessionId, "attendance"));
+      const byFp: Record<string, any[]> = {};
+      const byIp: Record<string, any[]> = {};
+      attSnap.forEach((d) => {
+        const dat: any = d.data();
+        const audit = dat.audit || {};
+        const fh = audit.fingerprintHash || "";
+        const ip = audit.ip || "";
+        const entry = { studentNumber: dat.studentNumber, submittedAt: dat.submittedAt?.toDate ? dat.submittedAt.toDate() : new Date(dat.submittedAt), fingerprintPreview: audit.fingerprintPreview || null, userAgent: audit.userAgent || "" };
+        if (fh) {
+          byFp[fh] = byFp[fh] || [];
+          byFp[fh].push(entry);
+        }
+        if (ip) {
+          byIp[ip] = byIp[ip] || [];
+          byIp[ip].push(entry);
+        }
+      });
+      setFlagDetails({ byFingerprint: byFp, byIp: byIp, integrity: flags });
+    } catch (err) {
+      console.error("Failed to load flag details", err);
+      setFlagDetails({ byFingerprint: {}, byIp: {}, integrity: flags });
+    }
+  };
   const [filter, setFilter] = useState("");
 
   const [tick, setTick] = useState(0);
@@ -237,6 +312,7 @@ function SessionLive() {
   const [copied, setCopied] = useState(false);
 
   const { showToast } = useToast();
+  const delegateMode = getDelegateMode();
 
   // Tick for countdown
   useEffect(() => {
@@ -297,7 +373,9 @@ function SessionLive() {
       if (!sessionId || !session?.settings?.requireClassCode) return;
       try {
         const callable = httpsCallable(functions, "getSessionPin");
-        const res: any = await callable({ sessionId });
+        const payload: any = { sessionId };
+        if (delegateMode) payload.accessId = delegateMode.accessId;
+        const res: any = await callable(payload);
         if (!mounted) return;
         setClassCodePin(res.data?.pin || null);
         setPinRotationSeconds(Number(res.data?.rotationSeconds || 30));
@@ -343,6 +421,18 @@ function SessionLive() {
     return () => unsubscribe();
   }, [sessionId]);
 
+  // Integrity flags (real-time)
+  useEffect(() => {
+    if (!sessionId) return;
+    const flagsRef = collection(db, "sessions", sessionId, "integrity");
+    const q = query(flagsRef, orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const items: any[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      setFlags(items);
+    });
+    return () => unsub();
+  }, [sessionId]);
+
   const uniqueStudentCount = useMemo(() => {
     const ids = new Set(attendance.map((row) => row.studentNumber));
     return ids.size;
@@ -380,6 +470,8 @@ function SessionLive() {
 
   const clearError = useCallback(() => setActionError(null), []);
 
+  const recentFlagCount = flags.length;
+
   const handleOpenDisplay = useCallback(() => {
     if (!sessionId) return;
     const displayUrl = `${window.location.origin}/sessions/${sessionId}/display`;
@@ -392,7 +484,9 @@ function SessionLive() {
     setActionError(null);
     try {
       const callable = httpsCallable(functions, "renewSessionQr");
-      await callable({ sessionId, windowSeconds: chosenRenewWindow });
+      const payload: any = { sessionId, windowSeconds: chosenRenewWindow };
+      if (delegateMode) payload.accessId = delegateMode.accessId;
+      await callable(payload);
       showToast({ message: "QR renewed", variant: "success" });
     } catch (err: any) {
       const msg = err.message || "Failed to renew QR code";
@@ -410,7 +504,9 @@ function SessionLive() {
       setActionError(null);
       try {
         const callable = httpsCallable(functions, "extendSessionWindow");
-        await callable({ sessionId, extensionSeconds: seconds });
+        const payload: any = { sessionId, extensionSeconds: seconds };
+        if (delegateMode) payload.accessId = delegateMode.accessId;
+        await callable(payload);
         showToast({ message: `Extended session by ${seconds}s`, variant: "success" });
       } catch (err: any) {
         const msg = err.message || "Failed to extend session";
@@ -431,7 +527,9 @@ function SessionLive() {
     setActionError(null);
     try {
       const callable = httpsCallable(functions, "endSession");
-      await callable({ sessionId });
+      const payload: any = { sessionId };
+      if (delegateMode) payload.accessId = delegateMode.accessId;
+      await callable(payload);
       setConfirmEnding(false);
       showToast({ message: "Session ended", variant: "success" });
     } catch (err: any) {
@@ -485,6 +583,12 @@ function SessionLive() {
       setEditLoading(false);
     }
   }, [sessionId, editingRow, editReason, closeEdit, showToast]);
+
+  // Modal close helper
+  const closeFlagsModal = () => {
+    setShowFlagsModal(false);
+    setFlagDetails({ byFingerprint: {}, byIp: {} });
+  };
 
   const handleSaveAttendance = useCallback(async () => {
     if (!sessionId || !editingRow) return;
@@ -601,6 +705,20 @@ function SessionLive() {
               ) : null}
             </div>
 
+                {recentFlagCount > 0 && (
+                  <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800">Integrity warning</p>
+                        <p className="text-xs text-amber-700">Possible proxy or rapid submissions detected ({recentFlagCount})</p>
+                      </div>
+                      <div className="text-sm text-amber-900">{flags[0]?.createdAt?.toDate ? flags[0].createdAt.toDate().toLocaleString() : ""}</div>
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <button onClick={handleOpenIntegrity} onKeyDown={(e)=>{ if(e.key==='Enter') handleOpenIntegrity(); }} className="rounded-md bg-amber-600 px-3 py-1 text-sm text-white hover:opacity-95">View details</button>
+                    </div>
+                  </div>
+                )}
             <div className="rounded-2xl border border-stroke-subtle bg-surfaceAlt p-4">
               {qrUrl ? (
                 <div className="relative w-full flex flex-col items-center">
@@ -738,6 +856,156 @@ function SessionLive() {
       </div>
 
       {/* Edit modal */}
+      {showFlagsModal ? (
+        <ModalShell title="Integrity details" description="Detailed view of suspected proxy and velocity events" onClose={closeFlagsModal}>
+          {/* Fingerprint clusters (Notion x Linear clean cards) */}
+          {Object.keys(flagDetails.byFingerprint || {}).length === 0 ? (
+            <div className="rounded-2xl border border-stroke-subtle bg-surfaceAlt p-4 text-sm text-text-muted">
+              No fingerprint clusters detected.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {Object.entries(flagDetails.byFingerprint || {}).map(([fh, entries]: any) => {
+                const uniqueStudents = Array.from(
+                  new Set((entries || []).map((e: any) => e.studentNumber).filter(Boolean))
+                );
+
+                const sample = entries?.[0]?.fingerprintPreview || {};
+                const ua = sample.ua || entries?.[0]?.userAgent || "—";
+                const screen = sample.screen || "—";
+                const tz = sample.timezone || "—";
+
+                const submissionsCount = entries?.length || 0;
+                const studentsCount = uniqueStudents.length;
+
+                return (
+                  <div
+                    key={fh}
+                    className="rounded-2xl border border-stroke-subtle bg-surface p-4 shadow-subtle"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      {/* Left: fingerprint + meta */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
+                              Fingerprint
+                            </div>
+                            <div className="mt-2 truncate font-mono text-xs text-text-primary">
+                              {fh}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            <div className="inline-flex flex-wrap justify-end gap-2">
+                              <span className="rounded-full border border-stroke-subtle bg-surfaceAlt px-3 py-1 text-xs font-semibold text-text-muted">
+                                {submissionsCount} submissions
+                              </span>
+                              <span className="rounded-full border border-stroke-subtle bg-surfaceAlt px-3 py-1 text-xs font-semibold text-text-muted">
+                                {studentsCount} students
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              className="mt-3 inline-flex items-center justify-center rounded-full border border-stroke-subtle bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary transition hover:bg-surfaceAlt"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(String(fh));
+                                  showToast({ message: "Fingerprint copied", variant: "success" });
+                                } catch (e) {
+                                  showToast({ message: "Copy failed", variant: "error" });
+                                }
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-stroke-subtle bg-surfaceAlt p-3">
+                          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                            Sample device
+                          </div>
+                          <div className="mt-2 text-xs text-text-muted">
+                            Screen: <span className="text-text-primary">{screen}</span> · Timezone: <span className="text-text-primary">{tz}</span>
+                          </div>
+                          <div className="mt-3 rounded-xl border border-stroke-subtle bg-surface p-3 font-mono text-[11px] leading-snug text-text-muted break-words">
+                            {ua}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: students pills */}
+                      <div className="sm:w-[280px]">
+                        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
+                          Students
+                        </div>
+
+                        {uniqueStudents.length === 0 ? (
+                          <div className="mt-3 text-sm text-text-muted">No student numbers found.</div>
+                        ) : (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {uniqueStudents.map((s: any) => (
+                              <span
+                                key={s}
+                                className="inline-flex items-center rounded-full border border-stroke-subtle bg-surfaceAlt px-3 py-1 text-sm font-semibold text-text-primary"
+                              >
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Submission velocity */}
+          <div className="mt-6 rounded-2xl border border-stroke-subtle bg-surface p-4 shadow-subtle">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-semibold text-text-primary">Submission velocity</h4>
+                <p className="mt-1 text-sm text-text-muted">Rapid submission events detected (short and moderate windows).</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {(() => {
+                const velocityEvents = (flagDetails.integrity || flags || []).filter(
+                  (f: any) => f?.type && String(f.type).startsWith("velocity")
+                );
+
+                if (velocityEvents.length === 0) {
+                  return <div className="text-sm text-text-muted">No velocity events recorded.</div>;
+                }
+
+                return velocityEvents.map((f: any) => (
+                  <div
+                    key={f.id || `${f.type}-${String(f.createdAt || "")}`}
+                    className="rounded-2xl border border-stroke-subtle bg-surfaceAlt p-4"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-text-primary">{f.type}</div>
+                        <div className="mt-1 text-xs text-text-muted">
+                          Reason: {f.reason || "—"} · Count: {f.count ?? 0}
+                        </div>
+                      </div>
+                      <div className="text-xs text-text-muted">
+                        {f.createdAt?.toDate ? f.createdAt.toDate().toLocaleString() : ""}
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </ModalShell>
+      ) : null}
       {editingRow ? (
         <ModalShell
           title={`Edit attendance — ${editingRow.studentNumber}`}

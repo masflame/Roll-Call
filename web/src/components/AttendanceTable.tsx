@@ -97,12 +97,12 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: A
       {/* Mobile card list (kept compact) */}
       <div className="sm:hidden space-y-3">
         {table.getRowModel().rows.length === 0 && (
-          <div className="rounded-md border border-stroke-subtle bg-surface p-4 text-sm text-text-muted">No attendance yet.</div>
+          <Card className="text-sm text-text-muted p-4" variant="panel">No attendance yet.</Card>
         )}
         {table.getRowModel().rows.map((row) => {
           const data = row.original;
           return (
-            <div key={row.id} className="rounded-md border border-stroke-subtle bg-surface p-3">
+            <Card key={row.id} className="p-3" variant="panel">
               <div className="flex items-center justify-between">
                 <div className="font-semibold">{data.studentNumber}</div>
                 <div className="text-sm text-text-muted">{data.status}</div>
@@ -114,7 +114,7 @@ function AttendanceTable({ data, globalFilter, onGlobalFilterChange, onEdit }: A
                   <button onClick={() => onEdit && onEdit(data)} className="text-xs text-brand-primary">Edit</button>
                 </div>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>

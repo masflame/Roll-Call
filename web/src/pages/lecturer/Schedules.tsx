@@ -1,11 +1,12 @@
 // @ts-nocheck
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { collection, onSnapshot, query, where, orderBy, addDoc, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useNavigate } from "react-router-dom";
 import { auth, db, functions } from "../../firebase";
-import PageHeader from "../../components/PageHeader";
+// PageHeader removed from page layout
 import { useToast } from "../../components/ToastProvider";
+import ActionSelect from "../../components/ui/Selects";
 
 function formatDateTimeLocal(d?: Date | null) {
   if (!d) return "";
@@ -20,6 +21,10 @@ const windowOptions = [
   { label: "2 minutes", value: 120 },
   { label: "5 minutes", value: 300 }
 ];
+
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 function Schedules() {
   const user = auth.currentUser;
@@ -39,6 +44,8 @@ function Schedules() {
   const [concurrent, setConcurrent] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [visibleMap, setVisibleMap] = useState<Record<string, boolean>>({});
+  const visibleTimers = useRef<number[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -58,7 +65,19 @@ function Schedules() {
     const ref = collection(db, "schedules");
     const q = query(ref, where("lecturerId", "==", user.uid), orderBy("scheduledAt", "desc"));
     const unsub = onSnapshot(q, (snap) => {
-      setSchedules(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setSchedules(items);
+      // start staggered enter animations
+      // clear any previous timers
+      visibleTimers.current.forEach((t) => clearTimeout(t));
+      visibleTimers.current = [];
+      setVisibleMap({});
+      items.forEach((it: any, idx: number) => {
+        const t = window.setTimeout(() => {
+          setVisibleMap((p) => ({ ...p, [it.id]: true }));
+        }, idx * 70);
+        visibleTimers.current.push(t as unknown as number);
+      });
     });
     return () => unsub();
   }, [user]);
@@ -70,6 +89,29 @@ function Schedules() {
   }, [modules]);
 
   const toggleField = (field: string) => setRequiredFields((p) => ({ ...p, [field]: !p[field] }));
+
+  function Segmented({ value, options, onChange }: { value: number; options: { label: string; value: number }[]; onChange: (v: number) => void; }) {
+    return (
+      <div className="inline-flex rounded-full border border-stroke-subtle bg-surface p-1">
+        {options.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={cx(
+                "rounded-full px-3 py-1.5 text-sm font-semibold transition",
+                active ? "bg-brand-soft text-brand-primary" : "text-text-muted hover:bg-surfaceAlt hover:text-text-primary"
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   const handleCreate = async (e?: any) => {
     e?.preventDefault();
@@ -187,70 +229,197 @@ function Schedules() {
     setConcurrent(!!s.concurrent);
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Schedules" description="Create and manage scheduled attendance sessions." noBackground />
+    return (
+      <div className="space-y-6">
 
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <form className="rounded-md border border-stroke-subtle bg-white p-4 sm:p-6 shadow-sm text-gray-900 w-full max-w-full overflow-hidden box-border" onSubmit={handleCreate}>
-          <h3 className="text-sm font-semibold text-gray-900">New schedule</h3>
-              <div className="mt-4 grid gap-3">
-                <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
-              <option value="">Select module</option>
-              {modules.map((m: any) => <option key={m.id} value={m.id}>{m.moduleCode}{m.moduleName ? ` — ${m.moduleName}` : ""}</option>)}
-            </select>
-                <input className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
-                <input type="datetime-local" className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-                <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900">
-              <option value="none">No recurrence</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-                <input className="w-full rounded-md border px-4 py-2 sm:py-3 text-base text-gray-900" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
-            <div className="grid gap-2 sm:grid-cols-2">
-                  {windowOptions.map((opt) => (
-                    <label key={opt.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${windowSeconds === opt.value ? 'border-brand-primary bg-surfaceAlt' : 'border-stroke-subtle'}`}>
-                      <input type="radio" name="window" checked={windowSeconds === opt.value} onChange={() => setWindowSeconds(opt.value)} /> <span className="text-gray-900 text-sm">{opt.label}</span>
-                    </label>
-                  ))}
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+          <form className="rounded-2xl border border-stroke-subtle bg-surface p-6 shadow-subtle text-text-primary w-full max-w-full overflow-hidden box-border" onSubmit={handleCreate}>
+            <h3 className="text-sm font-semibold text-text-primary">New schedule</h3>
+            <div className="mt-4 grid gap-4">
+                  <ActionSelect
+                    value={moduleId}
+                    onChange={(v) => setModuleId(v)}
+                    options={modules.map((m: any) => ({ label: `${m.moduleCode}${m.moduleName ? ` — ${m.moduleName}` : ""}`, value: m.id }))}
+                    includeAll={false}
+                  />
+                    <input className="w-full rounded-lg border border-stroke-subtle bg-surface px-4 py-3 text-sm text-text-primary outline-none transition focus:border-brand-primary" placeholder="Title (optional)" value={title} onChange={(e) => setTitle(e.target.value)} />
+                    <input type="datetime-local" className="w-full rounded-lg border border-stroke-subtle bg-surface px-4 py-3 text-sm text-text-primary outline-none transition focus:border-brand-primary" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+                    <ActionSelect
+                      value={recurrence}
+                      onChange={(v) => setRecurrence(v)}
+                      options={[{ label: 'No recurrence', value: 'none' }, { label: 'Daily', value: 'daily' }, { label: 'Weekly', value: 'weekly' }]}
+                      includeAll={false}
+                    />
+                    <input className="w-full rounded-lg border border-stroke-subtle bg-surface px-4 py-3 text-sm text-text-primary outline-none transition focus:border-brand-primary" placeholder="Instructors (comma separated)" value={instructors} onChange={(e) => setInstructors(e.target.value)} />
+            <div className="mt-3">
+              <Segmented
+                value={windowSeconds}
+                options={windowOptions.map((o) => ({ label: o.label === '30 seconds' ? '30s' : o.label === '60 seconds' ? '60s' : o.label === '2 minutes' ? '2m' : '5m', value: o.value }))}
+                onChange={setWindowSeconds}
+              />
             </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireClassCode} onChange={() => setRequireClassCode((p) => !p)} /> <span className="ml-1">Require class code</span></label>
-                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={concurrent} onChange={() => setConcurrent((p) => !p)} /> <span className="ml-1">Allow concurrent sessions</span></label>
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" onClick={() => setRequireClassCode((p) => !p)} className={cx(
+                    "inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition",
+                    requireClassCode ? "border-brand-primary/30 bg-brand-soft text-brand-primary" : "border-stroke-subtle bg-surface text-text-primary hover:bg-surfaceAlt"
+                  )}>
+                    Require class code
+                  </button>
+
+                  <button type="button" onClick={() => setConcurrent((p) => !p)} className={cx(
+                    "inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold transition",
+                    concurrent ? "border-brand-primary/30 bg-brand-soft text-brand-primary" : "border-stroke-subtle bg-surface text-text-primary hover:bg-surfaceAlt"
+                  )}>
+                    Allow concurrent sessions
+                  </button>
                 </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-                  {['name','surname','initials','email','group'].map((k) => (
-                    <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!requiredFields[k]} onChange={() => toggleField(k)} /> <span className="text-gray-900 ml-1">{k}</span></label>
-                  ))}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {['name','surname','initials','email','group'].map((k) => {
+                    const enabled = !!requiredFields[k];
+                    return (
+                      <button key={k} type="button" onClick={() => toggleField(k)} className={cx(
+                        "flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition",
+                        enabled ? "border-brand-primary/30 bg-brand-soft" : "border-stroke-subtle bg-surface hover:bg-surfaceAlt"
+                      )}>
+                        <div>
+                          <div className="text-sm font-semibold text-text-primary capitalize">{k}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {enabled ? <span className="text-xs text-brand-primary">Required</span> : <span className="text-xs text-text-muted">Optional</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
             </div>
-                <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
-                  <button type="button" onClick={() => { setTitle(''); setRecurrence('none'); setInstructors(''); setConcurrent(false); setEditingId(null); }} className="rounded-md border px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base w-full sm:w-auto">Reset</button>
-                  <button type="submit" disabled={loading} className="rounded-lg bg-gray-900 text-white px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base w-full sm:w-auto">{editingId ? 'Update' : 'Save'}</button>
+                <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
+                  <button type="button" onClick={() => { setTitle(''); setRecurrence('none'); setInstructors(''); setConcurrent(false); setEditingId(null); }} className="inline-flex w-full items-center justify-center rounded-md border border-stroke-subtle bg-surface px-5 py-3 text-sm font-semibold text-text-primary transition hover:bg-surfaceAlt sm:w-auto">Reset</button>
+                  <button type="submit" disabled={loading} className="inline-flex w-full items-center justify-center rounded-md bg-brand-primary px-6 py-3 text-sm font-semibold text-text-onBrand shadow-brand transition hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:bg-stroke-strong sm:w-auto">{editingId ? 'Update' : 'Save'}</button>
                 </div>
           </div>
         </form>
 
-              <div className="space-y-2 overflow-x-auto">
-              {schedules.map((s: any) => (
-                <div key={s.id} className="w-full box-border rounded-md border bg-white p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row sm:items-start justify-between text-gray-900">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-gray-900">{s.title || (moduleMap[s.moduleId]?.moduleCode || 'Untitled')}</div>
-                    <div className="text-xs text-gray-600">{s.scheduledAt?.toDate ? new Date(s.scheduledAt.toDate()).toLocaleString() : s.scheduledAt ? new Date(s.scheduledAt).toLocaleString() : '—'}</div>
-                    <div className="text-xs text-gray-600 mt-1">Status: {s.status || 'queued'}</div>
-                    <div className="text-xs text-gray-600 mt-1">Recurrence: {s.recurrence || 'none'}</div>
-                    <div className="text-xs text-gray-600 mt-1">Instructors: {(s.instructors || []).join(', ') || '—'}</div>
-                    <div className="text-xs text-gray-600 mt-1">Concurrent sessions: {s.concurrent ? 'Yes' : 'No'}</div>
-              </div>
-                  <div className="mt-3 sm:mt-0 flex items-center sm:flex-col sm:items-end gap-2">
-                    <div className="flex gap-2">
-                      <button onClick={() => handleStart(s)} disabled={s.status === 'started' || loading} className="rounded-md bg-brand-primary text-white px-3 py-1 text-sm">Start</button>
-                      <button onClick={() => handleEdit(s)} className="rounded-md border px-3 py-1 text-sm text-gray-700">Edit</button>
-                    </div>
-                    <button onClick={() => handleDelete(s.id)} className="rounded-md border px-3 py-1 text-sm text-gray-700">Delete</button>
+              <div className="space-y-3 overflow-x-hidden">
+                {schedules.length === 0 && (
+                  <div className="rounded-2xl border border-stroke-subtle bg-surface p-5 text-sm text-text-muted">
+                    No schedules yet.
                   </div>
-            </div>
-          ))}
-            </div>
+                )}
+
+                {schedules.map((s: any) => {
+                  const moduleCode = moduleMap[s.moduleId]?.moduleCode || "";
+                  const moduleName = moduleMap[s.moduleId]?.moduleName || "";
+                  const primaryTitle = s.title || moduleCode || "Untitled schedule";
+                  const subtitle =
+                    moduleCode && moduleName ? `${moduleCode} — ${moduleName}` : moduleCode || moduleName || "";
+
+                  const when = s.scheduledAt?.toDate
+                    ? new Date(s.scheduledAt.toDate()).toLocaleString()
+                    : s.scheduledAt
+                      ? new Date(s.scheduledAt).toLocaleString()
+                      : "—";
+
+                  const status = (s.status || "queued").toLowerCase();
+                  const isStarted = status === "started";
+
+                  const statusPill =
+                    status === "queued"
+                      ? "bg-surfaceAlt text-text-muted border-stroke-subtle"
+                      : status === "started"
+                        ? "bg-accent-success/10 text-accent-success border-accent-success/20"
+                        : "bg-surfaceAlt text-text-muted border-stroke-subtle";
+
+                  return (
+                    <div
+                      key={s.id}
+                      className={cx(
+                        "w-full box-border rounded-2xl border border-stroke-subtle bg-surface",
+                        "p-4 sm:p-4",
+                        "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+                        visibleMap[s.id] ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
+                        "transition-all duration-300 ease-out",
+                        "hover:bg-surfaceAlt/40 hover:border-stroke-strong"
+                      )}
+                    >
+                      {/* Left: content */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="min-w-0 truncate text-sm font-semibold text-text-primary">
+                            {primaryTitle}
+                          </h4>
+                          <span className={cx("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold", statusPill)}>
+                            {status}
+                          </span>
+                          {s.concurrent && (
+                            <span className="inline-flex items-center rounded-full border border-brand-secondary/20 bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-secondary">
+                              Concurrent
+                            </span>
+                          )}
+                          {s.requireClassCode && (
+                            <span className="inline-flex items-center rounded-full border border-brand-primary/20 bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-primary">
+                              Class code
+                            </span>
+                          )}
+                        </div>
+
+                        {subtitle && (
+                          <div className="mt-1 text-xs text-text-muted truncate">{subtitle}</div>
+                        )}
+
+                        <div className="mt-2 text-xs text-text-muted">
+                          <span className="font-medium text-text-primary/80">Scheduled:</span> {when}
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
+                          <div>
+                            <span className="font-medium text-text-primary/80">Recurrence:</span>{" "}
+                            {s.recurrence || "none"}
+                          </div>
+                          <div className="truncate">
+                            <span className="font-medium text-text-primary/80">Instructors:</span>{" "}
+                            {(s.instructors || []).join(", ") || "—"}
+                          </div>
+                          <div>
+                            <span className="font-medium text-text-primary/80">Window:</span>{" "}
+                            {s.windowSeconds ? `${s.windowSeconds}s` : "—"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: actions */}
+                      <div className="flex flex-row flex-wrap items-center gap-2 sm:flex-col sm:items-end sm:gap-2 sm:pt-0">
+                        <div className="flex w-full flex-row gap-2 sm:w-auto sm:justify-end">
+                          <button
+                            onClick={() => handleStart(s)}
+                            disabled={isStarted || loading}
+                            className={cx(
+                              "inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-semibold transition",
+                              isStarted || loading
+                                ? "bg-stroke-strong text-text-onBrand/70 cursor-not-allowed"
+                                : "bg-brand-primary text-text-onBrand hover:bg-brand-primary/90"
+                            )}
+                          >
+                            {isStarted ? "Started" : "Start"}
+                          </button>
+
+                          <button
+                            onClick={() => handleEdit(s)}
+                            className="inline-flex items-center justify-center rounded-md border border-stroke-subtle bg-surface px-3 py-1.5 text-sm font-semibold text-text-primary transition hover:bg-surfaceAlt"
+                          >
+                            Edit
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => handleDelete(s.id)}
+                          className="inline-flex items-center justify-center rounded-md border border-stroke-subtle bg-surface px-3 py-1.5 text-sm font-semibold text-text-primary transition hover:bg-surfaceAlt"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
       </div>
     </div>
   );

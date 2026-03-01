@@ -11,6 +11,55 @@ body {
   min-height: 100vh;
 }
 
+/* Ensure light-on-dark body text, but dark text on white panels */
+.bg-surface,
+.bg-surfaceAlt,
+.surface,
+.surfaceAlt,
+.bg-white {
+  color: #0B1320; /* text-text-primary */
+}
+
+/* Ensure form controls inside white panels inherit the dark text color */
+.bg-surface input,
+.bg-surface textarea,
+.bg-surface select,
+.bg-surfaceAlt input,
+.bg-surfaceAlt textarea,
+.bg-surfaceAlt select {
+  color: inherit;
+}
+
+/* Stronger rules to ensure inputs/selects are readable on light panels */
+.bg-surface input,
+.bg-surface textarea,
+.bg-surface select,
+.bg-surfaceAlt input,
+.bg-surfaceAlt textarea,
+.bg-surfaceAlt select,
+.bg-white input,
+.bg-white textarea,
+.bg-white select {
+  background: #FFFFFF;
+  color: #0B1320 !important;
+  border-color: #D1D5DB !important;
+}
+
+/* Button utility used across admin pages */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #111827; /* brand primary */
+  color: #FFFFFF;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .brand-banner {
   background-image: radial-gradient(120% 120% at 10% 0%, rgba(38,132,255,0.08) 0%, rgba(0,82,204,0.06) 40%, transparent 75%);
 }

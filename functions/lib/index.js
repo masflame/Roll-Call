@@ -33,20 +33,42 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.nightlyAnalyticsRecompute = exports.exportModulePdf = exports.editAttendance = exports.recomputeModuleStatsNow = exports.uploadRoster = exports.exportSessionCsv = exports.extendSessionWindow = exports.renewSessionQr = exports.endSession = exports.submitAttendance = exports.getSessionPin = exports.scheduledAutoStart = exports.createSession = void 0;
+exports.nightlyAnalyticsRecompute = exports.exportModulePdf = exports.editAttendance = exports.recomputeModuleStatsNow = exports.uploadRoster = exports.exportSessionCsv = exports.extendSessionWindow = exports.renewSessionQr = exports.endSession = exports.submitAttendance = exports.getSessionPin = exports.scheduledAutoStart = exports.acceptInvite = exports.createInvite = exports.generateExportBundle = exports.revokeAccessAsOwner = exports.leaveAccess = exports.updateModuleAsOwner = exports.createSessionAsOwner = exports.createSession = void 0;
 const admin = __importStar(require("firebase-admin"));
+const auth_1 = require("firebase-admin/auth");
 const crypto = __importStar(require("crypto"));
+const nodemailer = require("nodemailer");
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_2 = require("firebase-admin/firestore");
 const hash_1 = require("./utils/hash");
 const csv_1 = require("./utils/csv");
+const sync_1 = require("csv-stringify/sync");
 const pdf_1 = require("./utils/pdf");
 const totp_1 = require("./utils/totp");
 const rateLimit_1 = require("./utils/rateLimit");
 const validators_1 = require("./utils/validators");
 const analytics_1 = require("./utils/analytics");
+// import JSZip via require to avoid runtime interop issues in Cloud Functions
+let JSZip = null;
+try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    JSZip = require("jszip");
+}
+catch (e) {
+    console.warn("JSZip not available:", e?.stack || e?.message || e);
+}
+// haversine distance (meters)
+function haversineMeters(lat1, lon1, lat2, lon2) {
+    const toRad = (v) => (v * Math.PI) / 180;
+    const R = 6371000; // earth radius meters
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
 function getCheckinBucket(mins) {
     if (mins <= 1)
         return "0-1";
@@ -94,6 +116,26 @@ const applyCorsHeaders = (req, res) => {
 const QR_TOKEN_BYTES = 16;
 const randomBytes = crypto.randomBytes;
 const generateQrToken = () => randomBytes(QR_TOKEN_BYTES).toString("hex");
+// Email transporter (optional) — configure via env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM, FRONTEND_ORIGIN
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+let emailTransporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    try {
+        emailTransporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: Number(process.env.SMTP_PORT || 587),
+            secure: String(process.env.SMTP_SECURE) === "true",
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
+    }
+    catch (e) {
+        console.warn("Failed to create email transporter:", e?.stack || e?.message || e);
+        emailTransporter = null;
+    }
+}
 exports.createSession = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
     if (!req.auth)
         throw new https_1.HttpsError("unauthenticated", "Lecturer must be signed in.");
@@ -114,6 +156,8 @@ exports.createSession = (0, https_1.onCall)({ cors: callableCors }, async (req) 
         tx.set(sessionRef, {
             lecturerId,
             moduleId: payload.moduleId,
+            offeringId: payload.offeringId || null,
+            groupId: payload.groupId || null,
             moduleCode: payload.moduleCode,
             title: payload.title,
             requiredFields: payload.requiredFields,
@@ -159,6 +203,738 @@ exports.createSession = (0, https_1.onCall)({ cors: callableCors }, async (req) 
         qrToken
     };
 });
+// Callable: create session on behalf of owner using active moduleAccess
+exports.createSessionAsOwner = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
+    if (!req.auth)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to create delegated sessions");
+    const actorUid = req.auth.uid;
+    const params = req.data || {};
+    const accessId = String(params.accessId || "").trim();
+    if (!accessId)
+        throw new https_1.HttpsError("invalid-argument", "accessId required");
+    // validate session payload using same validator used by createSession
+    const payload = (0, validators_1.validateCreateSession)(req.data);
+    // load access
+    const accessRef = db.collection("moduleAccess").doc(accessId);
+    const aSnap = await accessRef.get();
+    if (!aSnap.exists)
+        throw new https_1.HttpsError("not-found", "Access record not found");
+    const access = aSnap.data();
+    // check active and not expired
+    if (access.status !== "ACTIVE")
+        throw new https_1.HttpsError("permission-denied", "Access not active");
+    if (access.expiresAt && access.expiresAt.toDate && access.expiresAt.toDate() < new Date())
+        throw new https_1.HttpsError("permission-denied", "Access expired");
+    // role-based permission: only allow roles that can create sessions
+    const allowedRoles = ["CO_LECTURER", "TA", "OWNER", "LECTURER"];
+    if (!access.role || !allowedRoles.includes(String(access.role)))
+        throw new https_1.HttpsError("permission-denied", "Insufficient delegate role to create sessions");
+    // owner must exist
+    const ownerUid = access.ownerUid;
+    if (!ownerUid)
+        throw new https_1.HttpsError("not-found", "Owner not found for access");
+    // create session as owner (lecturerId set to ownerUid) and annotate delegate metadata
+    const sessionRef = db.collection(sessionsCollection).doc();
+    const privateRef = db.collection(sessionsPrivateCollection).doc(sessionRef.id);
+    const now = Date.now();
+    const expiresAt = new Date(now + payload.windowSeconds * 1000);
+    const qrToken = generateQrToken();
+    const qrTokenHash = (0, hash_1.hashCode)(qrToken);
+    const classCode = payload.requireClassCode ? String(Math.floor(1000 + Math.random() * 9000)) : undefined;
+    const classCodeHash = classCode ? (0, hash_1.hashCode)(classCode) : undefined;
+    const classCodeRotationSeconds = payload.classCodeRotationSeconds || (payload.requireClassCode ? 30 : undefined);
+    const classCodeSecret = payload.requireClassCode ? randomBytes(10).toString("hex") : undefined;
+    await db.runTransaction(async (tx) => {
+        tx.set(sessionRef, {
+            lecturerId: ownerUid,
+            moduleId: payload.moduleId,
+            offeringId: payload.offeringId || null,
+            groupId: payload.groupId || null,
+            moduleCode: payload.moduleCode,
+            title: payload.title,
+            requiredFields: payload.requiredFields,
+            settings: {
+                windowSeconds: payload.windowSeconds,
+                blockDuplicates: true,
+                requireClassCode: payload.requireClassCode
+            },
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            expiresAt,
+            isActive: true,
+            endedAt: null,
+            stats: { submissionsCount: 0 },
+            qr: { tokenHash: qrTokenHash, expiresAt, lastRotatedAt: firestore_1.FieldValue.serverTimestamp() },
+            // delegated metadata
+            delegated: {
+                actorUid,
+                accessId,
+                role: access.role || null,
+                actedAt: firestore_1.FieldValue.serverTimestamp()
+            }
+        });
+        const privateData = {
+            lecturerId: ownerUid,
+            classCodeHash: classCodeHash ?? null,
+            classCodePlain: classCode ?? null,
+            qrTokenPlain: qrToken,
+            qrExpiresAt: expiresAt,
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            lastRotatedAt: firestore_1.FieldValue.serverTimestamp()
+        };
+        if (classCodeSecret) {
+            privateData.classCodeSecret = classCodeSecret;
+            privateData.classCodeRotationSeconds = classCodeRotationSeconds;
+            delete privateData.classCodePlain;
+        }
+        tx.set(privateRef, privateData);
+        // audit log
+        const auditRef = db.collection("auditLogs").doc();
+        tx.set(auditRef, {
+            actorUid,
+            actorRole: access.role || null,
+            ownerUid: ownerUid,
+            moduleId: payload.moduleId || null,
+            action: "CREATE_SESSION_DELEGATED",
+            targetId: sessionRef.id,
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            meta: { accessId }
+        });
+    });
+    return { sessionId: sessionRef.id, expiresAt: expiresAt.toISOString(), classCode, qrToken };
+});
+// Callable: update module configuration on behalf of owner (delegated edit)
+exports.updateModuleAsOwner = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
+    if (!req.auth)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to update module as owner");
+    const actorUid = req.auth.uid;
+    const data = req.data || {};
+    const accessId = String(data.accessId || "").trim();
+    const moduleId = String(data.moduleId || "").trim();
+    const updates = data.updates || {};
+    if (!accessId || !moduleId)
+        throw new https_1.HttpsError("invalid-argument", "accessId and moduleId required");
+    const accessRef = db.collection("moduleAccess").doc(accessId);
+    const aSnap = await accessRef.get();
+    if (!aSnap.exists)
+        throw new https_1.HttpsError("not-found", "Access record not found");
+    const access = aSnap.data();
+    if (access.status !== "ACTIVE")
+        throw new https_1.HttpsError("permission-denied", "Access not active");
+    if (access.expiresAt && access.expiresAt.toDate && access.expiresAt.toDate() < new Date())
+        throw new https_1.HttpsError("permission-denied", "Access expired");
+    // only co-lecturer or owner-level roles can edit module config
+    const editRoles = ["CO_LECTURER", "OWNER", "LECTURER", "FULL"];
+    if (!access.role || !editRoles.includes(String(access.role)))
+        throw new https_1.HttpsError("permission-denied", "Insufficient delegate role to edit module");
+    const moduleRef = db.collection("modules").doc(moduleId);
+    const modSnap = await moduleRef.get();
+    if (!modSnap.exists)
+        throw new https_1.HttpsError("not-found", "Module not found");
+    // owner check
+    const ownerUid = access.ownerUid;
+    if (!ownerUid)
+        throw new https_1.HttpsError("not-found", "Owner not found for access");
+    // Apply updates in a transaction and add audit log
+    await db.runTransaction(async (tx) => {
+        tx.update(moduleRef, updates);
+        const auditRef = db.collection("auditLogs").doc();
+        tx.set(auditRef, {
+            actorUid,
+            actorRole: access.role || null,
+            ownerUid,
+            moduleId,
+            action: "EDIT_MODULE_DELEGATED",
+            targetId: moduleId,
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            meta: { accessId, updates }
+        });
+    });
+    return { success: true };
+});
+// Callable: delegate leaves access (grantee action)
+exports.leaveAccess = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
+    if (!req.auth)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to leave access");
+    const actorUid = req.auth.uid;
+    const data = req.data || {};
+    const accessId = String(data.accessId || "").trim();
+    if (!accessId)
+        throw new https_1.HttpsError("invalid-argument", "accessId required");
+    const accessRef = db.collection("moduleAccess").doc(accessId);
+    const aSnap = await accessRef.get();
+    if (!aSnap.exists)
+        throw new https_1.HttpsError("not-found", "Access not found");
+    const access = aSnap.data();
+    // only grantee can leave via this callable
+    if (!access.granteeUid || String(access.granteeUid) !== actorUid) {
+        throw new https_1.HttpsError("permission-denied", "Only the grantee may leave this access");
+    }
+    await db.runTransaction(async (tx) => {
+        tx.update(accessRef, { status: 'LEFT', lastUsedAt: firestore_1.FieldValue.serverTimestamp() });
+        const auditRef = db.collection('auditLogs').doc();
+        tx.set(auditRef, {
+            actorUid,
+            actorRole: access.role || null,
+            ownerUid: access.ownerUid || null,
+            moduleId: access.moduleId || null,
+            action: 'DELEGATE_LEFT',
+            targetId: accessId,
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            meta: {}
+        });
+    });
+    // notify owner
+    try {
+        if (access.ownerUid) {
+            await db.collection('notifications').add({
+                userId: access.ownerUid,
+                sender: 'system',
+                type: 'DELEGATE_LEFT',
+                message: `${req.auth.token?.name || actorUid} left delegated access`,
+                read: false,
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    catch (e) {
+        console.warn('notify owner failed', e);
+    }
+    return { success: true };
+});
+// Callable: owner revokes access (owner action)
+exports.revokeAccessAsOwner = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
+    if (!req.auth)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to revoke access");
+    const actorUid = req.auth.uid;
+    const data = req.data || {};
+    const accessId = String(data.accessId || "").trim();
+    if (!accessId)
+        throw new https_1.HttpsError("invalid-argument", "accessId required");
+    const accessRef = db.collection('moduleAccess').doc(accessId);
+    const aSnap = await accessRef.get();
+    if (!aSnap.exists)
+        throw new https_1.HttpsError('not-found', 'Access not found');
+    const access = aSnap.data();
+    // only owner/creator can revoke
+    if (String(access.ownerUid) !== actorUid && String(access.createdByUid) !== actorUid) {
+        throw new https_1.HttpsError('permission-denied', 'Not authorized to revoke this access');
+    }
+    await db.runTransaction(async (tx) => {
+        tx.update(accessRef, { status: 'REVOKED', lastUsedAt: firestore_1.FieldValue.serverTimestamp() });
+        const auditRef = db.collection('auditLogs').doc();
+        tx.set(auditRef, {
+            actorUid,
+            actorRole: access.role || null,
+            ownerUid: access.ownerUid || null,
+            moduleId: access.moduleId || null,
+            action: 'ACCESS_REVOKED',
+            targetId: accessId,
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            meta: {}
+        });
+    });
+    // notify grantee
+    try {
+        if (access.granteeUid) {
+            await db.collection('notifications').add({
+                userId: access.granteeUid,
+                sender: 'system',
+                type: 'ACCESS_REVOKED',
+                message: `${req.auth.token?.name || actorUid} revoked delegated access`,
+                read: false,
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    catch (e) {
+        console.warn('notify grantee failed', e);
+    }
+    return { success: true };
+});
+// Callable: generate export bundle (CSV files). Returns base64-encoded CSVs in response.
+exports.generateExportBundle = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
+    if (!req.auth)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to generate exports");
+    const userId = req.auth.uid;
+    const params = req.data || {};
+    // support both single moduleId and array of moduleIds
+    const moduleId = params.moduleId ? String(params.moduleId) : null;
+    const moduleIds = Array.isArray(params.moduleIds) && params.moduleIds.length ? params.moduleIds.map((x) => String(x)) : null;
+    const offeringId = params.offeringId ? String(params.offeringId) : null;
+    const groupId = params.groupId ? String(params.groupId) : null;
+    const dateFrom = params.startDate ? new Date(String(params.startDate)) : params.dateFrom ? new Date(String(params.dateFrom)) : null;
+    const dateTo = params.endDate ? new Date(String(params.endDate)) : params.dateTo ? new Date(String(params.dateTo)) : null;
+    const studentNumber = params.studentNumber ? String(params.studentNumber) : null;
+    const scope = params.scope ? String(params.scope) : (moduleIds ? `modules:${moduleIds.join(",")}` : moduleId ? `module:${moduleId}` : `date_range:${dateFrom?.toISOString() || ''}..${dateTo?.toISOString() || ''}`);
+    const exportId = crypto.randomUUID();
+    const generatedAt = new Date().toISOString();
+    const systemVersion = "1.0.0";
+    console.log("generateExportBundle called by", userId, "params:", JSON.stringify(params));
+    // helper: CSV encode and base64
+    const csvFromRows = (columns, rows) => {
+        const csv = (0, sync_1.stringify)(rows, { header: true, columns });
+        const bom = "\uFEFF";
+        return Buffer.from(bom + csv, "utf-8").toString("base64");
+    };
+    try {
+        // 1) Query sessions based on params
+        let sessionsQuery = db.collection(sessionsCollection);
+        if (moduleIds && moduleIds.length > 0) {
+            // Firestore 'in' supports up to 10 values
+            const slice = moduleIds.slice(0, 10);
+            sessionsQuery = sessionsQuery.where("moduleId", "in", slice);
+        }
+        else if (moduleId) {
+            sessionsQuery = sessionsQuery.where("moduleId", "==", moduleId);
+        }
+        if (offeringId)
+            sessionsQuery = sessionsQuery.where("offeringId", "==", offeringId);
+        if (groupId)
+            sessionsQuery = sessionsQuery.where("groupId", "==", groupId);
+        if (dateFrom)
+            sessionsQuery = sessionsQuery.where("scheduledAt", ">=", dateFrom);
+        if (dateTo)
+            sessionsQuery = sessionsQuery.where("scheduledAt", "<=", dateTo);
+        const sessionsSnap = await sessionsQuery.get();
+        const sessions = [];
+        sessionsSnap.forEach((s) => sessions.push({ id: s.id, ...s.data() }));
+        // Build sessions.csv rows
+        const sessionsColumns = [
+            "export_id",
+            "export_generated_at",
+            "export_generated_by_user_id",
+            "export_scope",
+            "system_version",
+            "session_id",
+            "module_code",
+            "session_title",
+            "lecturer_id",
+            "scheduled_start_at",
+            "started_at",
+            "ended_at",
+            "is_active",
+            "status",
+            "window_seconds",
+            "expected_roster_count",
+            "submissions_count",
+            "unique_students_count",
+            "absent_count",
+            "attendance_rate_pct",
+            "last_submission_at"
+        ];
+        const sessionsRows = [];
+        for (const s of sessions) {
+            const stats = s.stats || {};
+            const expected = s.expectedRosterCount || null;
+            const submissions = Number(stats.submissionsCount || 0);
+            const unique = Number(stats.uniqueStudentsCount || submissions);
+            const absent = expected !== null ? Math.max(0, (expected - submissions)) : "";
+            const rate = expected ? (submissions / Math.max(1, expected)) * 100 : "";
+            sessionsRows.push({
+                export_id: exportId,
+                export_generated_at: generatedAt,
+                export_generated_by_user_id: userId,
+                export_scope: scope,
+                system_version: systemVersion,
+                session_id: s.id,
+                module_code: s.moduleCode || s.moduleId || "",
+                session_title: s.title || "",
+                lecturer_id: s.lecturerId || "",
+                scheduled_start_at: s.scheduledAt ? (s.scheduledAt.toDate ? s.scheduledAt.toDate().toISOString() : new Date(s.scheduledAt).toISOString()) : "",
+                started_at: s.startedAt ? (s.startedAt.toDate ? s.startedAt.toDate().toISOString() : new Date(s.startedAt).toISOString()) : "",
+                ended_at: s.endedAt ? (s.endedAt.toDate ? s.endedAt.toDate().toISOString() : new Date(s.endedAt).toISOString()) : "",
+                is_active: Boolean(s.isActive),
+                status: s.status || (s.isActive ? "live" : "ended"),
+                window_seconds: s.settings?.windowSeconds ?? "",
+                expected_roster_count: expected ?? "",
+                submissions_count: submissions,
+                unique_students_count: unique,
+                absent_count: absent,
+                attendance_rate_pct: typeof rate === "number" ? Number(rate.toFixed(2)) : "",
+                last_submission_at: s.stats?.lastSubmissionAt ? (s.stats.lastSubmissionAt.toDate ? s.stats.lastSubmissionAt.toDate().toISOString() : new Date(s.stats.lastSubmissionAt).toISOString()) : ""
+            });
+        }
+        const sessionsCsv = csvFromRows(sessionsColumns, sessionsRows);
+        // 2) attendance_events.csv (event-level)
+        const attendanceColumns = [
+            "export_id",
+            "export_generated_at",
+            "export_generated_by_user_id",
+            "export_scope",
+            "system_version",
+            "session_id",
+            "attendance_event_id",
+            "submitted_at",
+            "student_number",
+            "name",
+            "surname",
+            "initials",
+            "email",
+            "group",
+            "status",
+            "captured_via",
+            "pin_required",
+            "pin_validated",
+            "device_fingerprint_hash",
+            "user_agent",
+            "ip_hash",
+            "approx_geo",
+            "integrity_flags"
+        ];
+        const attendanceRows = [];
+        for (const s of sessions) {
+            const attSnap = await db.collection(sessionsCollection).doc(s.id).collection("attendance").get();
+            attSnap.forEach((d) => {
+                const dat = d.data();
+                if (studentNumber && String(dat.studentNumber) !== studentNumber)
+                    return;
+                const audit = dat.audit || {};
+                attendanceRows.push({
+                    export_id: exportId,
+                    export_generated_at: generatedAt,
+                    export_generated_by_user_id: userId,
+                    export_scope: scope,
+                    system_version: systemVersion,
+                    session_id: s.id,
+                    attendance_event_id: d.id,
+                    submitted_at: dat.submittedAt ? (dat.submittedAt.toDate ? dat.submittedAt.toDate().toISOString() : new Date(dat.submittedAt).toISOString()) : "",
+                    student_number: dat.studentNumber || "",
+                    name: dat.name || "",
+                    surname: dat.surname || "",
+                    initials: dat.initials || "",
+                    email: dat.email || "",
+                    group: dat.group || "",
+                    status: dat.status || "Present",
+                    captured_via: dat.capturedVia || "",
+                    pin_required: !!s.settings?.requireClassCode,
+                    pin_validated: !!dat.pinValidated,
+                    device_fingerprint_hash: (audit.fingerprintHash || ""),
+                    user_agent: String(audit.userAgent || "").slice(0, 1024),
+                    ip_hash: audit.ip ? (0, hash_1.hashCode)(String(audit.ip)) : "",
+                    approx_geo: audit.approxGeo || "",
+                    integrity_flags: JSON.stringify(dat.integrity || dat.integrityFlags || [])
+                });
+            });
+        }
+        const attendanceCsv = csvFromRows(attendanceColumns, attendanceRows);
+        // 3) attendance_matrix_long.csv
+        const matrixColumns = [
+            "export_id",
+            "export_generated_at",
+            "export_generated_by_user_id",
+            "export_scope",
+            "system_version",
+            "module_code",
+            "class_label",
+            "group_label",
+            "student_number",
+            "session_id",
+            "session_title",
+            "session_date",
+            "submitted_at",
+            "status"
+        ];
+        const matrixRows = [];
+        for (const row of attendanceRows) {
+            const sMeta = sessions.find((x) => x.id === row.session_id) || {};
+            matrixRows.push({
+                export_id: exportId,
+                export_generated_at: generatedAt,
+                export_generated_by_user_id: userId,
+                export_scope: scope,
+                system_version: systemVersion,
+                module_code: sMeta.moduleCode || sMeta.moduleId || "",
+                class_label: sMeta.classLabel || "",
+                group_label: sMeta.groupLabel || "",
+                student_number: row.student_number,
+                session_id: row.session_id,
+                session_title: sMeta.title || "",
+                session_date: sMeta.scheduledAt ? (sMeta.scheduledAt.toDate ? sMeta.scheduledAt.toDate().toISOString().slice(0, 10) : new Date(sMeta.scheduledAt).toISOString().slice(0, 10)) : "",
+                submitted_at: row.submitted_at,
+                status: row.status
+            });
+        }
+        const matrixCsv = csvFromRows(matrixColumns, matrixRows);
+        // 4) module_delivery_summary.csv (aggregate per module)
+        const deliveryColumns = ["export_id", "export_generated_at", "export_generated_by_user_id", "export_scope", "system_version", "module_code", "planned_sessions_count", "delivered_sessions_count", "avg_attendance_pct"];
+        const deliveryRows = [];
+        if (moduleId) {
+            const planned = (sessions || []).length;
+            const delivered = sessions.filter((s) => !!s.startedAt).length;
+            const avg = sessions.reduce((acc, s) => acc + (s.stats?.submissionsCount || 0), 0) / Math.max(1, delivered || 1);
+            deliveryRows.push({ export_id: exportId, export_generated_at: generatedAt, export_generated_by_user_id: userId, export_scope: scope, system_version: systemVersion, module_code: moduleId, planned_sessions_count: planned, delivered_sessions_count: delivered, avg_attendance_pct: Number((avg || 0).toFixed(2)) });
+        }
+        const deliveryCsv = csvFromRows(deliveryColumns, deliveryRows);
+        // 5) lecturer_activity.csv (aggregate by lecturer across sessions set)
+        const lectColumns = ["export_id", "export_generated_at", "export_generated_by_user_id", "export_scope", "system_version", "lecturer_user_id", "sessions_delivered", "avg_attendance_pct", "total_submissions"];
+        const lectRows = [];
+        const lecturersMap = {};
+        sessions.forEach((s) => {
+            const lid = s.lecturerId || "unknown";
+            lecturersMap[lid] = lecturersMap[lid] || { sessions: 0, submissions: 0 };
+            lecturersMap[lid].sessions += 1;
+            lecturersMap[lid].submissions += Number(s.stats?.submissionsCount || 0);
+        });
+        Object.entries(lecturersMap).forEach(([lid, data]) => {
+            const avg = data.sessions ? data.submissions / data.sessions : 0;
+            lectRows.push({ export_id: exportId, export_generated_at: generatedAt, export_generated_by_user_id: userId, export_scope: scope, system_version: systemVersion, lecturer_user_id: lid, sessions_delivered: data.sessions, avg_attendance_pct: Number(avg.toFixed(2)), total_submissions: data.submissions });
+        });
+        const lectCsv = csvFromRows(lectColumns, lectRows);
+        // 6) anomalies.csv from integrity docs
+        const anomaliesColumns = ["export_id", "export_generated_at", "export_generated_by_user_id", "export_scope", "system_version", "session_id", "student_number", "anomaly_type", "severity", "detected_at", "evidence"];
+        const anomaliesRows = [];
+        for (const s of sessions) {
+            const intSnap = await db.collection(sessionsCollection).doc(s.id).collection("integrity").get();
+            intSnap.forEach((d) => {
+                const it = d.data();
+                anomaliesRows.push({ export_id: exportId, export_generated_at: generatedAt, export_generated_by_user_id: userId, export_scope: scope, system_version: systemVersion, session_id: s.id, student_number: it.studentNumber || "", anomaly_type: it.type || "", severity: it.severity || "", detected_at: it.createdAt ? (it.createdAt.toDate ? it.createdAt.toDate().toISOString() : new Date(it.createdAt).toISOString()) : "", evidence: JSON.stringify(it) });
+            });
+        }
+        const anomaliesCsv = csvFromRows(anomaliesColumns, anomaliesRows);
+        // README.txt
+        const readme = `RollCall_Audit Export\nexport_id: ${exportId}\ngenerated_at: ${generatedAt}\nexported_by: ${userId}\nscope: ${scope}\nsystem_version: ${systemVersion}\n\nFiles included:\n- sessions.csv\n- attendance_events.csv\n- attendance_matrix_long.csv\n- module_delivery_summary.csv\n- lecturer_activity.csv\n- anomalies.csv\n`;
+        // build files array as buffers
+        const files = [
+            { name: "sessions.csv", buf: Buffer.from(sessionsCsv, "base64") },
+            { name: "attendance_events.csv", buf: Buffer.from(attendanceCsv, "base64") },
+            { name: "attendance_matrix_long.csv", buf: Buffer.from(matrixCsv, "base64") },
+            { name: "module_delivery_summary.csv", buf: Buffer.from(deliveryCsv, "base64") },
+            { name: "lecturer_activity.csv", buf: Buffer.from(lectCsv, "base64") },
+            { name: "anomalies.csv", buf: Buffer.from(anomaliesCsv, "base64") },
+            { name: "README.txt", buf: Buffer.from(readme, "utf-8") }
+        ];
+        // create zip with JSZip (wrap for clearer errors)
+        try {
+            const zip = new JSZip();
+            for (const f of files) {
+                zip.file(f.name, f.buf);
+            }
+            const zipBuf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+            const zipBase64 = zipBuf.toString("base64");
+            return {
+                exportId,
+                generatedAt,
+                zip: { name: `rollcall_export_${exportId}.zip`, contentBase64: zipBase64 },
+                files: files.map((f) => ({ name: f.name }))
+            };
+        }
+        catch (zipErr) {
+            console.error("generateExportBundle: ZIP creation failed", zipErr && (zipErr.stack || zipErr.message || zipErr));
+            throw new https_1.HttpsError("internal", `Failed to create ZIP: ${zipErr?.message || String(zipErr)}`);
+        }
+    }
+    catch (err) {
+        console.error("generateExportBundle error", err && (err.stack || err.message || err));
+        const msg = err?.message || String(err) || "unknown error";
+        throw new https_1.HttpsError("internal", `Failed to generate export bundle: ${msg}`);
+    }
+});
+// Create invite (callable) - generates secure token, stores tokenHash, creates moduleAccess+invite, sends email
+exports.createInvite = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
+    if (!req.auth)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to create invites");
+    const uid = req.auth.uid;
+    const authName = (req.auth?.token?.name) || req.auth.uid;
+    const data = req.data || {};
+    const granteeEmail = String(data.granteeEmail || "").trim().toLowerCase();
+    const role = String(data.role || "TA");
+    const moduleIds = Array.isArray(data.moduleIds) ? data.moduleIds.map(String) : [];
+    const expiresInDays = Number(data.expiresInDays || 90);
+    if (!granteeEmail)
+        throw new https_1.HttpsError("invalid-argument", "granteeEmail is required");
+    // Authorization: verify requester owns the listed modules (if provided)
+    if (moduleIds.length > 0) {
+        for (const mId of moduleIds) {
+            const mDoc = await db.collection("modules").doc(mId).get();
+            if (!mDoc.exists)
+                throw new https_1.HttpsError("not-found", `Module ${mId} not found`);
+            const m = mDoc.data() || {};
+            const owner = m.lecturerId || m.ownerUid || null;
+            if (owner !== uid)
+                throw new https_1.HttpsError("permission-denied", "Not authorized for one or more modules");
+        }
+    }
+    // Generate token and tokenHash
+    const token = randomBytes(24).toString("hex");
+    const tokenHash = (0, hash_1.hashCode)(token);
+    // compute expiresAt timestamp
+    const expiresAt = new Date(Date.now() + Math.max(1, expiresInDays) * 24 * 60 * 60 * 1000);
+    // create moduleAccess doc
+    const accessRef = await db.collection("moduleAccess").add({
+        moduleId: moduleIds.length === 1 ? moduleIds[0] : null,
+        ownerUid: uid,
+        granteeUid: null,
+        granteeEmail,
+        granteeName: null,
+        role,
+        scope: moduleIds.length ? { modules: moduleIds } : { ALL: true },
+        status: "PENDING",
+        createdAt: firestore_1.FieldValue.serverTimestamp(),
+        expiresAt,
+        createdByUid: uid,
+        lastUsedAt: null,
+    });
+    // create invite with tokenHash
+    const inviteRef = await db.collection("invites").add({
+        accessId: accessRef.id,
+        tokenHash,
+        granteeEmail,
+        expiresAt,
+        createdAt: firestore_1.FieldValue.serverTimestamp(),
+        acceptedAt: null,
+        acceptedByUid: null,
+    });
+    // create notification for existing user account if present
+    try {
+        let targetUid = null;
+        try {
+            const userRecord = await (0, auth_1.getAuth)().getUserByEmail(granteeEmail);
+            targetUid = userRecord.uid;
+        }
+        catch (authErr) {
+            // not found in Auth — fall back to users collection lookup
+            try {
+                const usersQ = await db.collection("users").where("email", "==", granteeEmail).limit(1).get();
+                if (!usersQ.empty)
+                    targetUid = usersQ.docs[0].id;
+            }
+            catch (e) {
+                console.warn("users collection lookup failed", e);
+            }
+        }
+        if (targetUid) {
+            await db.collection("notifications").add({
+                userId: targetUid,
+                sender: "system",
+                type: "INVITE",
+                message: `${authName} invited you to access modules as ${role}`,
+                read: false,
+                meta: { inviteId: inviteRef.id },
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    catch (e) {
+        console.warn("notify creation failed", e?.stack || e?.message || e);
+    }
+    // send email with link if transporter available
+    try {
+        if (emailTransporter) {
+            const acceptLink = `${FRONTEND_ORIGIN}/accept-invite?inviteId=${inviteRef.id}&token=${token}`;
+            const mail = {
+                from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+                to: granteeEmail,
+                subject: `You've been invited to access modules on RollCall`,
+                text: `${authName} invited you to access modules as ${role}. Accept: ${acceptLink}`,
+                html: `<p>${authName} invited you to access modules as <strong>${role}</strong>.</p><p><a href="${acceptLink}">Accept invite</a></p>`,
+            };
+            await emailTransporter.sendMail(mail);
+        }
+    }
+    catch (e) {
+        console.warn("send invite email failed", e?.stack || e?.message || e);
+    }
+    return { inviteId: inviteRef.id };
+});
+// Accept invite (callable) - verify token, attach granteeUid, create audit log
+exports.acceptInvite = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
+    if (!req.auth)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in to accept invites");
+    const uid = req.auth.uid;
+    const data = req.data || {};
+    const inviteId = String(data.inviteId || "");
+    const token = data.token ? String(data.token) : null;
+    if (!inviteId)
+        throw new https_1.HttpsError("invalid-argument", "inviteId required");
+    const invRef = db.collection("invites").doc(inviteId);
+    const invSnap = await invRef.get();
+    if (!invSnap.exists)
+        throw new https_1.HttpsError("not-found", "Invite not found");
+    const inv = invSnap.data();
+    // check expiry
+    if (inv.expiresAt && inv.expiresAt.toDate && inv.expiresAt.toDate() < new Date()) {
+        throw new https_1.HttpsError("failed-precondition", "Invite expired");
+    }
+    // verify token OR allow if authenticated user's email matches granteeEmail
+    const authEmail = (req.auth?.token?.email) ? String(req.auth.token.email).toLowerCase() : null;
+    if (inv.tokenHash) {
+        if (!token) {
+            // allow acceptance when signed-in user email matches invite email
+            if (!authEmail || authEmail !== String(inv.granteeEmail || "").toLowerCase()) {
+                throw new https_1.HttpsError("permission-denied", "Token required to accept this invite");
+            }
+        }
+        else {
+            if (!(0, hash_1.safeEquals)(inv.tokenHash, token)) {
+                throw new https_1.HttpsError("permission-denied", "Invalid token");
+            }
+        }
+    }
+    else {
+        // legacy invites may store plain token field or no hash; allow accept if email matches
+        if (inv.token) {
+            if (!token || token !== inv.token) {
+                if (!authEmail || authEmail !== String(inv.granteeEmail || "").toLowerCase()) {
+                    throw new https_1.HttpsError("permission-denied", "Invalid invite token");
+                }
+            }
+        }
+        else {
+            // no token present: allow only if email matches
+            if (!authEmail || authEmail !== String(inv.granteeEmail || "").toLowerCase()) {
+                throw new https_1.HttpsError("permission-denied", "Invite requires email verification or token");
+            }
+        }
+    }
+    // load moduleAccess
+    const accessRef = db.collection("moduleAccess").doc(inv.accessId);
+    const aSnap = await accessRef.get();
+    if (!aSnap.exists)
+        throw new https_1.HttpsError("not-found", "Access record not found");
+    const access = aSnap.data();
+    // perform updates in transaction
+    await db.runTransaction(async (tx) => {
+        tx.update(accessRef, {
+            granteeUid: uid,
+            granteeName: (req.auth?.token?.name) || null,
+            status: "ACTIVE",
+            lastUsedAt: firestore_1.FieldValue.serverTimestamp(),
+        });
+        tx.update(invRef, {
+            acceptedAt: firestore_1.FieldValue.serverTimestamp(),
+            acceptedByUid: uid,
+        });
+        // audit log
+        const auditRef = db.collection("auditLogs").doc();
+        tx.set(auditRef, {
+            actorUid: uid,
+            actorRole: access.role || null,
+            ownerUid: access.ownerUid || null,
+            moduleId: access.moduleId || null,
+            action: "INVITE_ACCEPT",
+            targetId: accessRef.id,
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            meta: {},
+        });
+    });
+    // notify owner
+    try {
+        if (access.ownerUid) {
+            await db.collection("notifications").add({
+                userId: access.ownerUid,
+                sender: "system",
+                type: "INVITE_ACCEPTED",
+                message: `${(req.auth?.token?.name) || req.auth.uid} accepted your delegate invite`,
+                read: false,
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    catch (e) {
+        console.warn('notify owner failed', e);
+    }
+    return { success: true, accessId: accessRef.id };
+});
 // scheduled starter: runs every minute and starts queued schedules whose time has arrived
 exports.scheduledAutoStart = (0, scheduler_1.onSchedule)("every 1 minutes", async (event) => {
     try {
@@ -200,6 +976,8 @@ exports.scheduledAutoStart = (0, scheduler_1.onSchedule)("every 1 minutes", asyn
                     tx.set(sessionRef, {
                         lecturerId,
                         moduleId: payload.moduleId,
+                        offeringId: payload.offeringId || null,
+                        groupId: payload.groupId || null,
                         moduleCode: payload.moduleCode,
                         title: payload.title,
                         requiredFields: payload.requiredFields,
@@ -257,8 +1035,11 @@ exports.getSessionPin = (0, https_1.onCall)({ cors: callableCors }, async (req) 
     if (!sessionSnap.exists)
         throw new https_1.HttpsError("not-found", "Session not found");
     const session = sessionSnap.data();
-    if (session.lecturerId !== lecturerId)
-        throw new https_1.HttpsError("permission-denied", "Forbidden");
+    let accessUsed = null;
+    if (session.lecturerId !== lecturerId) {
+        // allow active delegate with access
+        accessUsed = await ensureOwnerOrActiveDelegate(req, session);
+    }
     const privateSnap = await privateRef.get();
     if (!privateSnap.exists)
         throw new https_1.HttpsError("not-found", "Session private config missing");
@@ -268,6 +1049,24 @@ exports.getSessionPin = (0, https_1.onCall)({ cors: callableCors }, async (req) 
     if (!secret)
         throw new https_1.HttpsError("failed-precondition", "Rotating class code not enabled");
     const pin = (0, totp_1.generateTotp)(secret, rotation, 4);
+    // audit when delegate fetched pin
+    try {
+        if (accessUsed) {
+            await db.collection('auditLogs').add({
+                actorUid: req.auth.uid,
+                actorRole: accessUsed.role || null,
+                ownerUid: accessUsed.ownerUid || session.lecturerId || null,
+                moduleId: session.moduleId || null,
+                action: 'GET_PIN_DELEGATED',
+                targetId: sessionId,
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+                meta: { accessId: String(accessUsed ? accessUsed.id || accessUsed : '') }
+            });
+        }
+    }
+    catch (e) {
+        console.warn('audit log failed for getSessionPin', e);
+    }
     return { ok: true, pin, rotationSeconds: rotation };
 });
 exports.submitAttendance = (0, https_1.onRequest)(async (req, res) => {
@@ -378,7 +1177,64 @@ exports.submitAttendance = (0, https_1.onRequest)(async (req, res) => {
         }
         const allowedFields = session.requiredFields || {};
         const submittedAt = new Date();
-        const record = { studentNumber: payload.studentNumber, status: "Present", submittedAt, audit: { ip, userAgent: req.headers["user-agent"] || "" } };
+        // build a lightweight device fingerprint from UA + optional client metadata
+        const ua = String(req.headers["user-agent"] || "");
+        const sw = payload.screenWidth ? Number(payload.screenWidth) : undefined;
+        const sh = payload.screenHeight ? Number(payload.screenHeight) : undefined;
+        const tz = payload.timezone ? String(payload.timezone) : undefined;
+        const fpRaw = `${ua}|${sw || ""}x${sh || ""}|${tz || ""}`;
+        const fingerprintHash = (0, hash_1.hashCode)(fpRaw);
+        const record = {
+            studentNumber: payload.studentNumber,
+            status: "Present",
+            submittedAt,
+            audit: {
+                ip,
+                userAgent: ua,
+                fingerprintHash,
+                fingerprintPreview: {
+                    ua: ua.slice(0, 120),
+                    screen: sw && sh ? `${sw}x${sh}` : undefined,
+                    timezone: tz || undefined
+                }
+            }
+        };
+        // geolocation / geofence evaluation (if client sent coords)
+        let geoMismatch = false;
+        let geoEvidence = null;
+        try {
+            const loc = payload.location;
+            if (loc && typeof loc.lat === "number" && typeof loc.lng === "number") {
+                // attach approx geo string
+                record.audit.approxGeo = `${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}±${Number(loc.accuracy || 0).toFixed(1)}m`;
+                // determine configured geofence (session -> offering)
+                let geofence = session.geofence || null;
+                if (!geofence && session.offeringId) {
+                    try {
+                        const offSnap = await db.collection("offerings").doc(String(session.offeringId)).get();
+                        if (offSnap.exists)
+                            geofence = offSnap.data().geofence || null;
+                    }
+                    catch (e) {
+                        // ignore offering lookup errors
+                    }
+                }
+                if (geofence && geofence.lat && geofence.lng && geofence.radiusMeters) {
+                    const distance = haversineMeters(Number(loc.lat), Number(loc.lng), Number(geofence.lat), Number(geofence.lng));
+                    const buffer = Math.max(Number(loc.accuracy || 0), 25);
+                    const inside = distance <= (Number(geofence.radiusMeters) + buffer);
+                    record.audit.geo = { inside, distanceMeters: Number(distance.toFixed(1)), radiusMeters: Number(geofence.radiusMeters), source: session.geofence ? 'session' : 'offering' };
+                    // if outside geofence, mark for integrity logging after write
+                    if (!inside) {
+                        geoMismatch = true;
+                        geoEvidence = { distanceMeters: Number(distance.toFixed(1)), radiusMeters: Number(geofence.radiusMeters), accuracy: Number(loc.accuracy || 0) };
+                    }
+                }
+            }
+        }
+        catch (e) {
+            console.error("submitAttendance: geofence evaluation failed", e && (e.stack || e.message || e));
+        }
         ["name", "surname", "initials", "email", "group"].forEach((key) => { if (allowedFields[key] && payload[key])
             record[key] = payload[key]; });
         const createdAt = session.createdAt?.toDate ? session.createdAt.toDate() : new Date(session.createdAt);
@@ -446,6 +1302,50 @@ exports.submitAttendance = (0, https_1.onRequest)(async (req, res) => {
             tx.set(moduleStatsRef, newModuleStats, { merge: true });
             tx.set(studentRef, updatedStudent, { merge: true });
         });
+        // post-write: detect repeated submissions from same device/IP (flag if more than one submission)
+        try {
+            const byFp = fingerprintHash
+                ? await sessionRef.collection("attendance").where("audit.fingerprintHash", "==", fingerprintHash).get()
+                : null;
+            const byIp = await sessionRef.collection("attendance").where("audit.ip", "==", ip).get();
+            const fpCount = byFp ? byFp.size : 0;
+            const ipCount = byIp.size;
+            // flag when the same fingerprint or IP has more than one distinct submission
+            if ((fingerprintHash && fpCount > 1) || ipCount > 1) {
+                const integrityRef = sessionRef.collection("integrity").doc();
+                await integrityRef.set({
+                    type: "proxy",
+                    reason: fingerprintHash && fpCount > 1 ? "fingerprint" : "ip",
+                    count: Math.max(fpCount, ipCount),
+                    fingerprintHash: fingerprintHash || null,
+                    ip: ip || null,
+                    createdAt: firestore_1.FieldValue.serverTimestamp()
+                });
+                const sessionStatsRef = db.collection("sessionStats").doc(payload.sessionId);
+                await sessionStatsRef.set({ proxyFlags: firestore_1.FieldValue.increment(1) }, { merge: true });
+            }
+        }
+        catch (err) {
+            console.error("submitAttendance: proxy detection failed", err);
+        }
+        // if geofence check earlier flagged a mismatch, record integrity entry
+        try {
+            if ((geoMismatch || false) && geoEvidence) {
+                const integrityRef = sessionRef.collection("integrity").doc();
+                await integrityRef.set({
+                    type: "geo_mismatch",
+                    studentNumber: payload.studentNumber,
+                    evidence: geoEvidence,
+                    createdAt: firestore_1.FieldValue.serverTimestamp(),
+                    severity: "high"
+                });
+                const sessionStatsRef = db.collection("sessionStats").doc(payload.sessionId);
+                await sessionStatsRef.set({ geoFlags: firestore_1.FieldValue.increment(1) }, { merge: true });
+            }
+        }
+        catch (err) {
+            console.error("submitAttendance: geo mismatch logging failed", err && (err.stack || err.message || err));
+        }
         res.status(200).json({ ok: true, message: "Attendance recorded" });
     }
     catch (error) {
@@ -483,12 +1383,33 @@ exports.endSession = (0, https_1.onCall)({ cors: callableCors }, async (req) => 
     if (!snapshot.exists)
         throw new https_1.HttpsError("not-found", "Session not found");
     const session = snapshot.data();
-    if (session.lecturerId !== lecturerId)
-        throw new https_1.HttpsError("permission-denied", "Forbidden");
+    let accessUsed = null;
+    if (session.lecturerId !== lecturerId) {
+        // allow active delegate with access
+        accessUsed = await ensureOwnerOrActiveDelegate(req, session);
+    }
     await sessionRef.update({
         isActive: false,
         endedAt: firestore_1.FieldValue.serverTimestamp()
     });
+    // audit end session when delegated
+    try {
+        if (accessUsed) {
+            await db.collection('auditLogs').add({
+                actorUid: req.auth.uid,
+                actorRole: accessUsed.role || null,
+                ownerUid: accessUsed.ownerUid || session.lecturerId || null,
+                moduleId: session.moduleId || null,
+                action: 'END_SESSION_DELEGATED',
+                targetId: sessionRef.id,
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+                meta: { accessId: String(accessUsed ? accessUsed.id || accessUsed : '') }
+            });
+        }
+    }
+    catch (e) {
+        console.warn('audit log failed for endSession', e);
+    }
     return { ok: true };
 });
 const clampWindowSeconds = (value, fallback) => {
@@ -497,6 +1418,55 @@ const clampWindowSeconds = (value, fallback) => {
     const max = 30 * 60; // cap at 30 minutes for safety
     return Math.max(30, Math.min(Math.floor(value), max));
 };
+// Helper: allow action by session owner or an active delegate with valid access
+async function ensureOwnerOrActiveDelegate(req, session) {
+    const uid = req.auth?.uid;
+    if (!uid)
+        throw new https_1.HttpsError("unauthenticated", "Must be signed in.");
+    // owner shortcut
+    if (session.lecturerId === uid)
+        return null;
+    // check provided accessId (prefer explicit request param, fallback to session.delegated.accessId)
+    const accessId = String(req.data?.accessId || (session.delegated && session.delegated.accessId) || "").trim();
+    console.log("ensureOwnerOrActiveDelegate: uid=", uid, "sessionLecturer=", session.lecturerId, "accessId=", accessId);
+    if (!accessId) {
+        console.warn("ensureOwnerOrActiveDelegate: no accessId provided and session not owned by caller");
+        throw new https_1.HttpsError("permission-denied", "Forbidden");
+    }
+    const accessRef = db.collection('moduleAccess').doc(accessId);
+    const aSnap = await accessRef.get();
+    if (!aSnap.exists) {
+        console.warn("ensureOwnerOrActiveDelegate: access record not found", accessId);
+        throw new https_1.HttpsError('not-found', 'Access record not found');
+    }
+    const access = aSnap.data();
+    console.log("ensureOwnerOrActiveDelegate: access=", { id: accessId, status: access.status, ownerUid: access.ownerUid, granteeUid: access.granteeUid, role: access.role });
+    if (access.status !== 'ACTIVE') {
+        console.warn("ensureOwnerOrActiveDelegate: access not active", access.status);
+        throw new https_1.HttpsError('permission-denied', 'Access not active');
+    }
+    if (access.expiresAt && access.expiresAt.toDate && access.expiresAt.toDate() < new Date()) {
+        console.warn("ensureOwnerOrActiveDelegate: access expired", access.expiresAt.toDate());
+        throw new https_1.HttpsError('permission-denied', 'Access expired');
+    }
+    // must be the grantee
+    if (!access.granteeUid || String(access.granteeUid) !== String(uid)) {
+        console.warn("ensureOwnerOrActiveDelegate: caller is not grantee", { caller: uid, granteeUid: access.granteeUid });
+        throw new https_1.HttpsError('permission-denied', 'Forbidden');
+    }
+    // owner must match session owner
+    if (access.ownerUid && String(access.ownerUid) !== String(session.lecturerId)) {
+        console.warn("ensureOwnerOrActiveDelegate: access.ownerUid does not match session owner", { accessOwner: access.ownerUid, sessionOwner: session.lecturerId });
+        throw new https_1.HttpsError('permission-denied', 'Forbidden');
+    }
+    // role check: allow typical delegate roles
+    const allowedRoles = ["CO_LECTURER", "TA", "OWNER", "LECTURER", "FULL"];
+    if (!access.role || !allowedRoles.includes(String(access.role))) {
+        console.warn("ensureOwnerOrActiveDelegate: insufficient role", access.role);
+        throw new https_1.HttpsError('permission-denied', 'Insufficient delegate role');
+    }
+    return access;
+}
 exports.renewSessionQr = (0, https_1.onCall)({ cors: callableCors }, async (req) => {
     if (!req.auth)
         throw new https_1.HttpsError("unauthenticated", "Lecturer must be signed in.");
@@ -512,8 +1482,11 @@ exports.renewSessionQr = (0, https_1.onCall)({ cors: callableCors }, async (req)
         if (!sessionSnap.exists)
             throw new https_1.HttpsError("not-found", "Session not found");
         const session = sessionSnap.data();
-        if (session.lecturerId !== lecturerId)
-            throw new https_1.HttpsError("permission-denied", "Forbidden");
+        let accessUsed = null;
+        if (session.lecturerId !== lecturerId) {
+            // allow active delegate with access
+            accessUsed = await ensureOwnerOrActiveDelegate(req, session);
+        }
         if (!session.isActive)
             throw new https_1.HttpsError("failed-precondition", "Session ended");
         const baseWindow = Number(session.settings?.windowSeconds ?? 0) || 60;
@@ -535,6 +1508,25 @@ exports.renewSessionQr = (0, https_1.onCall)({ cors: callableCors }, async (req)
             qrExpiresAt: newExpiresAt,
             lastRotatedAt: firestore_1.FieldValue.serverTimestamp()
         }, { merge: true });
+        // audit log for delegated renew
+        try {
+            if (accessUsed) {
+                const auditRef = db.collection('auditLogs').doc();
+                tx.set(auditRef, {
+                    actorUid: req.auth.uid,
+                    actorRole: accessUsed.role || null,
+                    ownerUid: accessUsed.ownerUid || session.lecturerId || null,
+                    moduleId: session.moduleId || null,
+                    action: 'RENEW_QR_DELEGATED',
+                    targetId: sessionRef.id,
+                    createdAt: firestore_1.FieldValue.serverTimestamp(),
+                    meta: { accessId: String(accessUsed ? accessUsed.id || accessUsed : '') }
+                });
+            }
+        }
+        catch (e) {
+            console.warn('audit log failed for renewSessionQr', e);
+        }
         return { expiresAt: newExpiresAt, token: nextToken };
     });
     return {
@@ -561,8 +1553,11 @@ exports.extendSessionWindow = (0, https_1.onCall)({ cors: callableCors }, async 
         if (!sessionSnap.exists)
             throw new https_1.HttpsError("not-found", "Session not found");
         const session = sessionSnap.data();
-        if (session.lecturerId !== lecturerId)
-            throw new https_1.HttpsError("permission-denied", "Forbidden");
+        let accessUsed = null;
+        if (session.lecturerId !== lecturerId) {
+            // allow active delegate with access
+            accessUsed = await ensureOwnerOrActiveDelegate(req, session);
+        }
         if (!session.isActive)
             throw new https_1.HttpsError("failed-precondition", "Session ended");
         const currentExpiresAt = session.expiresAt?.toDate ? session.expiresAt.toDate() : new Date(session.expiresAt);
@@ -576,6 +1571,25 @@ exports.extendSessionWindow = (0, https_1.onCall)({ cors: callableCors }, async 
             lecturerId,
             qrExpiresAt: newExpiresAt
         }, { merge: true });
+        // audit log for delegated extend
+        try {
+            if (accessUsed) {
+                const auditRef = db.collection('auditLogs').doc();
+                tx.set(auditRef, {
+                    actorUid: req.auth.uid,
+                    actorRole: accessUsed.role || null,
+                    ownerUid: accessUsed.ownerUid || session.lecturerId || null,
+                    moduleId: session.moduleId || null,
+                    action: 'EXTEND_WINDOW_DELEGATED',
+                    targetId: sessionRef.id,
+                    createdAt: firestore_1.FieldValue.serverTimestamp(),
+                    meta: { accessId: String(accessUsed ? accessUsed.id || accessUsed : ''), extensionSeconds }
+                });
+            }
+        }
+        catch (e) {
+            console.warn('audit log failed for extendSessionWindow', e);
+        }
         return newExpiresAt;
     });
     return {
@@ -765,6 +1779,8 @@ exports.exportModulePdf = (0, https_1.onCall)({ cors: callableCors }, async (req
         throw new https_1.HttpsError("unauthenticated", "Lecturer must be signed in.");
     const lecturerId = req.auth.uid;
     const moduleId = String(req.data?.moduleId || "").trim();
+    const offeringId = req.data?.offeringId ? String(req.data?.offeringId).trim() : undefined;
+    const groupId = req.data?.groupId ? String(req.data?.groupId).trim() : undefined;
     if (!moduleId)
         throw new https_1.HttpsError("invalid-argument", "moduleId required");
     const moduleStatsRef = db.collection("moduleStats").doc(moduleId);
@@ -777,8 +1793,18 @@ exports.exportModulePdf = (0, https_1.onCall)({ cors: callableCors }, async (req
     const studentsSnap = await studentsRef.get();
     const topAbsentees = [];
     studentsSnap.forEach((d) => topAbsentees.push(d.data()));
-    // fetch recent sessions (for context)
-    const sessionsSnap = await db.collection("sessions").where("moduleId", "==", moduleId).orderBy("createdAt", "desc").limit(50).get();
+    // fetch recent sessions (for context) — apply optional offering/group filters
+    let sessionsQuery = db.collection("sessions").where("moduleId", "==", moduleId);
+    if (offeringId && groupId) {
+        sessionsQuery = sessionsQuery.where("offeringId", "==", offeringId).where("groupId", "==", groupId);
+    }
+    else if (offeringId) {
+        sessionsQuery = sessionsQuery.where("offeringId", "==", offeringId);
+    }
+    else if (groupId) {
+        sessionsQuery = sessionsQuery.where("groupId", "==", groupId);
+    }
+    const sessionsSnap = await sessionsQuery.orderBy("createdAt", "desc").limit(50).get();
     const sessions = [];
     sessionsSnap.forEach((s) => sessions.push(Object.assign({ sessionId: s.id }, s.data())));
     const buffer = await (0, pdf_1.toModulePdfBuffer)({ moduleStats, topAbsentees, sessions });

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../components/ui/Layout";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase";
@@ -11,6 +11,10 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const location = useLocation();
+
+  const pending = (location.state as any)?.registrationPending || false;
+  const storedEmail = typeof localStorage !== 'undefined' ? localStorage.getItem('emailForSignIn') : null;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -30,6 +34,12 @@ function Login() {
     <Layout>
       <div className="flex min-h-[480px] items-center justify-center px-4">
         <div className="w-full max-w-md rounded-lg bg-white p-8 shadow">
+          {pending || storedEmail ? (
+            <div className="mb-4 rounded-md border border-brand-primary/30 bg-brand-primary/5 p-3 text-sm text-brand-primary">
+              Verification link sent to {storedEmail || "your email"}. Check your inbox and click the link to complete registration.
+              <button onClick={() => { try { localStorage.removeItem('emailForSignIn'); } catch {} }} className="ml-3 underline">Dismiss</button>
+            </div>
+          ) : null}
           <h1 className="mb-6 text-2xl font-bold text-slate-900">Lecturer Login</h1>
           <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
