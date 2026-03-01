@@ -727,7 +727,8 @@ export default function SharedAccess() {
 
             {/* Filters: animated segmented control (All / Active / Pending / Expired) */}
             <div className="mt-3">
-              <div className="relative inline-flex rounded-lg border border-stroke-subtle p-0.5 bg-white w-full max-w-md">
+              <div className="overflow-x-auto -mx-2 px-2">
+                <div className="relative inline-flex rounded-lg border border-stroke-subtle p-0.5 bg-white w-max">
                 <div
                   aria-hidden
                   className="absolute top-0.5 left-0.5 bottom-0.5 rounded-md shadow-md"
@@ -755,7 +756,7 @@ export default function SharedAccess() {
                 />
 
                 {[
-                  { key: 'all', label: `All (${accessList.length})` }, 
+                  { key: 'all', label: `All (${accessList.length})` },
                   { key: 'active', label: `Active (${accessList.filter(a => a.status === 'ACTIVE').length})` },
                   { key: 'pending', label: `Pending (${accessList.filter(a => a.status === 'PENDING').length})` },
                   { key: 'expired', label: `Expired/Revoked (${accessList.filter(a => a.status === 'REVOKED' || a.status === 'EXPIRED' || a.status === 'LEFT').length})` },
@@ -763,13 +764,14 @@ export default function SharedAccess() {
                   <button
                     key={b.key}
                     onClick={() => setFilter(b.key as any)}
-                    className={`relative z-10 flex-1 px-1.5 py-0.5 text-xs rounded-md transition-colors duration-200 ${
+                    className={`relative z-10 flex-initial px-3 py-1.5 text-sm rounded-md transition-colors duration-200 ${
                       filter === b.key ? 'text-white' : 'text-gray-600 hover:text-gray-800'
                     }`}
                   >
                     {b.label}
                   </button>
                 ))}
+              </div>
               </div>
             </div>
 
