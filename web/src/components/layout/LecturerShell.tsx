@@ -377,13 +377,7 @@ function LecturerShell() {
                 )}
               </button>
               <ProfileMenu />
-              <button
-                onClick={() => navigate("/sessions/new")}
-                className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors flex items-center gap-1"
-              >
-                <PlayCircle className="h-4 w-4" />
-                <span className="hidden xs:inline">Start</span>
-              </button>
+              {/* Start session button intentionally hidden on mobile header */}
             </div>
           </div>
         </header>
@@ -392,7 +386,7 @@ function LecturerShell() {
 
         {/* Dashboard Header Block (global except Dashboard and Settings) */}
         {!(location.pathname === "/" || location.pathname.startsWith("/settings")) && (
-          <div className="w-full space-y-6">
+          <div className="hidden lg:block w-full space-y-6">
             <Card className="overflow-hidden p-0 bg-white text-gray-900 border border-gray-200 shadow-subtle">
               <div className="px-4 py-2 sm:px-5 sm:py-2">
                 <div className="flex items-center justify-between gap-3">

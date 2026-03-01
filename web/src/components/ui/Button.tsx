@@ -7,7 +7,7 @@ export function PrimaryButton({ children, onClick, disabled, className, loading 
 		<button
 			onClick={onClick}
 			disabled={disabled || loading}
-			className={`inline-flex items-center justify-center rounded-md bg-brand-primary px-3 py-1 text-sm font-semibold text-text-onBrand shadow-brand transition hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:bg-stroke-strong ${className || ""}`}
+			className={`inline-flex items-center justify-center rounded-md bg-brand-primary px-4 py-2 sm:px-3 sm:py-1 text-sm font-semibold text-text-onBrand shadow-brand transition hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:bg-stroke-strong ${className || ""}`}
 		>
 			{loading && <Spinner size={18} className="mr-2" />}
 			{children}

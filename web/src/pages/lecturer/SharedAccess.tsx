@@ -193,7 +193,7 @@ function Modal({
 
           <motion.div
             key="modal-card"
-            className="relative w-full max-w-2xl rounded-3xl border border-stroke-subtle bg-surface p-6 shadow-subtle"
+            className="relative w-full max-w-lg sm:max-w-2xl rounded-3xl border border-stroke-subtle bg-surface p-6 shadow-subtle"
             initial={{ y: 24, opacity: 0, scale: 0.985 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 12, opacity: 0, scale: 0.985 }}
@@ -541,7 +541,7 @@ export default function SharedAccess() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setOpenInvite(true)}
-                className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+                className="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
               >
                 <UserPlus className="h-4 w-4" />
                 Invite Delegate

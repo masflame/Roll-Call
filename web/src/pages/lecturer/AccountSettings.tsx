@@ -173,9 +173,9 @@ export default function AccountSettings() {
           <div className="space-y-4">
             {hasPasswordProvider ? (
               <form onSubmit={handleChangePassword} className="grid gap-4">
-                <input name="currentPassword" type="password" placeholder="Current password" className="w-full rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
-                <input name="newPassword" type="password" placeholder="New password" className="w-full rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
-                <PrimaryButton type="submit" disabled={loading}>{loading ? 'Saving...' : 'Update password'}</PrimaryButton>
+                <input name="currentPassword" type="password" placeholder="Current password" className="w-full rounded-md sm:rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
+                <input name="newPassword" type="password" placeholder="New password" className="w-full rounded-md sm:rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
+                <PrimaryButton type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving...' : 'Update password'}</PrimaryButton>
               </form>
             ) : (
               <div className="text-base text-gray-400">
@@ -192,9 +192,9 @@ export default function AccountSettings() {
           </div>
           {hasPasswordProvider ? (
             <form onSubmit={handleChangeEmail} className="grid gap-4">
-              <input name="curPwd" type="password" placeholder="Current password" className="w-full rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
-              <input name="newEmail" type="email" placeholder="New email address" className="w-full rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
-              <PrimaryButton type="submit" disabled={loading}>{loading ? 'Saving...' : 'Update email'}</PrimaryButton>
+              <input name="curPwd" type="password" placeholder="Current password" className="w-full rounded-md sm:rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
+              <input name="newEmail" type="email" placeholder="New email address" className="w-full rounded-md sm:rounded-full border border-gray-200 px-5 py-3 text-base text-gray-900 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 placeholder:text-gray-400" required />
+              <PrimaryButton type="submit" disabled={loading} className="w-full sm:w-auto">{loading ? 'Saving...' : 'Update email'}</PrimaryButton>
             </form>
           ) : (
             <div className="text-base text-gray-400">Your account doesn't support password-based reauthentication. Reauthenticate by signing in with your email link or set a password using the reset email, then try changing email.</div>

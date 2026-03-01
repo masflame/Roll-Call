@@ -286,17 +286,17 @@ function History() {
                       </p>
                     </div>
             
-                    {/* Summary Stats */}
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
+                    {/* Summary Stats (stack on mobile, row on larger screens) */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="w-full sm:w-auto text-center sm:text-right">
                         <p className="text-sm text-gray-500">Total Sessions</p>
                         <p className="text-xl font-semibold text-gray-900">{filteredSessions.length}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="w-full sm:w-auto text-center sm:text-right">
                         <p className="text-sm text-gray-500">Submissions</p>
                         <p className="text-xl font-semibold text-gray-900">{totalSubmissions}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="w-full sm:w-auto text-center sm:text-right">
                         <p className="text-sm text-gray-500">Active</p>
                         <p className="text-xl font-semibold text-emerald-600">{activeCount}</p>
                       </div>
