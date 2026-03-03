@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Layout from "../../components/ui/Layout";
 import { auth, db, functions } from "../../firebase";
@@ -227,6 +227,11 @@ export default function SharedAccess() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'expired'>('all');
 
+  // segmented control refs and indicator
+  const tabContainerRef = useRef<HTMLDivElement | null>(null);
+  const tabButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number; bg: string }>({ left: 0, width: 0, bg: '#000' });
+
   // Invite form state
   const [openInvite, setOpenInvite] = useState(false);
   const [email, setEmail] = useState("");
@@ -270,6 +275,44 @@ export default function SharedAccess() {
 
     return () => unsub();
   }, [user]);
+
+  // Measure segmented control buttons and position indicator
+  useLayoutEffect(() => {
+    const order = ['all','active','pending','expired'];
+
+    function compute() {
+      const idx = order.indexOf(filter);
+      const container = tabContainerRef.current;
+      const btn = tabButtonRefs.current[idx];
+      const bg = (() => {
+        switch (filter) {
+          case 'active':
+            return '#059669';
+          case 'pending':
+            return '#f97316';
+          case 'expired':
+            return '#374151';
+          default:
+            return '#000000';
+        }
+      })();
+
+      if (container && btn) {
+        const cRect = container.getBoundingClientRect();
+        const bRect = btn.getBoundingClientRect();
+        const left = bRect.left - cRect.left;
+        const width = bRect.width;
+        setIndicatorStyle({ left, width, bg });
+      } else if (container) {
+        const w = container.clientWidth / order.length;
+        setIndicatorStyle({ left: order.indexOf(filter) * w, width: w, bg });
+      }
+    }
+
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, [filter, accessList]);
 
   // Accesses shared with me
   useEffect(() => {
@@ -728,50 +771,38 @@ export default function SharedAccess() {
             {/* Filters: animated segmented control (All / Active / Pending / Expired) */}
             <div className="mt-3">
               <div className="overflow-x-auto -mx-2 px-2">
-                <div className="relative inline-flex rounded-lg border border-stroke-subtle p-0.5 bg-white w-max">
-                <div
-                  aria-hidden
-                  className="absolute top-0.5 left-0.5 bottom-0.5 rounded-md shadow-md"
-                  style={{
-                    width: `${100 / 4}%`,
-                    transform: `translateX(${(() => {
-                      const order = ['all','active','pending','expired'];
-                      return order.indexOf(filter) * 100;
-                    })()}%)`,
-                    transition: 'transform 320ms cubic-bezier(.2,.8,.2,1), background 200ms linear',
-                    background: (() => {
-                      switch (filter) {
-                        case 'active':
-                          return '#059669'; // green
-                        case 'pending':
-                          return '#f97316'; // amber/orange
-                        case 'expired':
-                          return '#374151'; // gray/dark
-                        default:
-                          return '#000000'; // black for All
-                      }
-                    })(),
-                    zIndex: 0,
-                  }}
-                />
+                <div ref={tabContainerRef} className="relative inline-flex rounded-lg border border-stroke-subtle p-0.5 bg-white w-max">
+                  <div
+                    aria-hidden
+                    className="absolute top-0.5 bottom-0.5 rounded-md shadow-md"
+                    style={{
+                      left: indicatorStyle.left,
+                      width: indicatorStyle.width,
+                      transition: 'left 320ms cubic-bezier(.2,.8,.2,1), width 220ms linear, background 200ms linear',
+                      background: indicatorStyle.bg,
+                      zIndex: 0,
+                      willChange: 'left, width'
+                    }}
+                  />
 
-                {[
-                  { key: 'all', label: `All (${accessList.length})` },
-                  { key: 'active', label: `Active (${accessList.filter(a => a.status === 'ACTIVE').length})` },
-                  { key: 'pending', label: `Pending (${accessList.filter(a => a.status === 'PENDING').length})` },
-                  { key: 'expired', label: `Expired/Revoked (${accessList.filter(a => a.status === 'REVOKED' || a.status === 'EXPIRED' || a.status === 'LEFT').length})` },
-                ].map((b) => (
-                  <button
-                    key={b.key}
-                    onClick={() => setFilter(b.key as any)}
-                    className={`relative z-10 flex-initial px-3 py-1.5 text-sm rounded-md transition-colors duration-200 ${
-                      filter === b.key ? 'text-white' : 'text-gray-600 hover:text-gray-800'
-                    }`}
-                  >
-                    {b.label}
-                  </button>
-                ))}
-              </div>
+                  {[
+                    { key: 'all', label: `All (${accessList.length})` },
+                    { key: 'active', label: `Active (${accessList.filter(a => a.status === 'ACTIVE').length})` },
+                    { key: 'pending', label: `Pending (${accessList.filter(a => a.status === 'PENDING').length})` },
+                    { key: 'expired', label: `Expired/Revoked (${accessList.filter(a => a.status === 'REVOKED' || a.status === 'EXPIRED' || a.status === 'LEFT').length})` },
+                  ].map((b, i) => (
+                    <button
+                      key={b.key}
+                      ref={(el) => (tabButtonRefs.current[i] = el)}
+                      onClick={() => setFilter(b.key as any)}
+                      className={`relative z-10 flex-initial px-3 py-1.5 text-sm rounded-md transition-colors duration-200 ${
+                        filter === b.key ? 'text-white' : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
