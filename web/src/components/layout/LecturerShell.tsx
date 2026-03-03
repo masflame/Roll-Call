@@ -178,6 +178,10 @@ function LecturerShell() {
   const user = auth.currentUser;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<number>(0);
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+  const [classesToday, setClassesToday] = useState<number | null>(null);
+  const [totalStudents, setTotalStudents] = useState<number | null>(null);
+  const [attendanceRate, setAttendanceRate] = useState<number | null>(null);
   
   // Hide header on live session pages
   const hideHeader = /^\/sessions\/[\w-]+\/live$/.test(location.pathname);
