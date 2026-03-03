@@ -1,7 +1,6 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { } from "react";
 import { useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
 // PageHeader removed; heading now part of layout
 import { auth, db } from "../../firebase";
 import { useProfile } from "../../lib/hooks/useProfile";
@@ -21,33 +20,7 @@ function Profile() {
   const { data: profile, isLoading: loading, error } = useProfile(user?.uid);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let active = true;
-    const loadProfile = async () => {
-      // data + loading + error handled by useProfile
-            displayName: user.displayName || "",
-            email: user.email || "",
-            department: "",
-            createdAt: user.metadata?.creationTime || ""
-          }); } catch {}
-        }
-      } catch (err: any) {
-        if (!active) return;
-        setError(err.message || "Failed to load profile data");
-        // on error, clear cache to avoid serving stale data repeatedly
-        try { clearCachedProfile(user.uid); } catch {}
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadProfile();
-    return () => {
-      active = false;
-    };
-  }, [user]);
+  // profile is provided by `useProfile` hook (React Query + local persistence)
 
   const fullName = profile?.displayName || `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim();
 
