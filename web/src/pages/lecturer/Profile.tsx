@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 // PageHeader removed; heading now part of layout
 import { auth, db } from "../../firebase";
-import { getCachedProfile, setCachedProfile, clearCachedProfile } from "../../lib/profileCache";
+import { useProfile } from "../../lib/hooks/useProfile";
 import { PrimaryButton, Card } from "../../components/ui";
 
 interface LecturerProfile {
@@ -18,58 +18,13 @@ interface LecturerProfile {
 
 function Profile() {
   const user = auth.currentUser;
-  const [profile, setProfile] = useState<LecturerProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: profile, isLoading: loading, error } = useProfile(user?.uid);
   const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
     const loadProfile = async () => {
-      if (!user) {
-        setError("No authenticated lecturer found.");
-        setLoading(false);
-        return;
-      }
-      // try cache first for instant UI
-      try {
-        const cached = getCachedProfile(user.uid);
-        if (cached && active) {
-          setProfile({
-            ...cached,
-            email: cached.email || user.email || undefined,
-            createdAt: cached.createdAt || user.metadata?.creationTime
-          });
-          setLoading(false);
-        }
-      } catch (err) {
-        // ignore cache read failures
-      }
-      try {
-        const ref = doc(db, "lecturers", user.uid);
-        const snapshot = await getDoc(ref);
-        if (!active) return;
-        if (snapshot.exists()) {
-          const data = snapshot.data() as LecturerProfile;
-          const prof = {
-            ...data,
-            email: data.email || user.email || undefined,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : user.metadata?.creationTime
-          } as LecturerProfile;
-          setProfile(prof);
-          try { setCachedProfile(user.uid, prof); } catch {}
-        } else {
-          setProfile({
-            firstName: user.displayName?.split(" ")[0] || "",
-            lastName: user.displayName?.split(" ").slice(1).join(" ") || "",
-            displayName: user.displayName || "",
-            email: user.email || "",
-            department: "",
-            createdAt: user.metadata?.creationTime || ""
-          });
-          try { setCachedProfile(user.uid, {
-            firstName: user.displayName?.split(" ")[0] || "",
-            lastName: user.displayName?.split(" ").slice(1).join(" ") || "",
+      // data + loading + error handled by useProfile
             displayName: user.displayName || "",
             email: user.email || "",
             department: "",

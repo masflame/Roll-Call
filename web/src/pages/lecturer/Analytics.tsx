@@ -62,24 +62,16 @@ export default function Analytics() {
   }, [selected]);
 
   // Load offerings when module changes
+  const { data: offeringsData = [] } = useOfferings(selected);
   useEffect(() => {
     if (!selected) {
       setOfferings([]);
       setSelectedOffering(null);
       return;
     }
-
-    (async () => {
-      const snap = await getDocs(collection(db, "offerings"));
-      const items: any[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as any;
-        if (data.moduleId === selected) items.push({ id: d.id, ...data });
-      });
-      setOfferings(items);
-      if (items.length && !selectedOffering) setSelectedOffering(items[0].id);
-    })();
-  }, [selected, selectedOffering]);
+    setOfferings(offeringsData || []);
+    if ((offeringsData?.length || 0) > 0 && !selectedOffering) setSelectedOffering(offeringsData[0].id);
+  }, [selected, offeringsData, selectedOffering]);
 
   // Load groups when offering changes
   useEffect(() => {

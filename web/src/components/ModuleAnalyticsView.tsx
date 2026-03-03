@@ -7,8 +7,9 @@
 // @ts-nocheck
 import React3, { useEffect as useEffect3, useMemo as useMemo3, useState as useState3, useRef as useRef3 } from "react";
 import { Info } from "lucide-react";
-import { doc, getDoc, collection as collection3, getDocs as getDocs3, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db as db3 } from "../firebase";
+import { fetchSessions } from "../lib/hooks/useSessions";
 import { Pill } from "./ui";
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -135,15 +136,9 @@ export function ModuleAnalyticsView({ moduleId, offeringId, groupId }: { moduleI
           q = query(sessionsRef, where("moduleId", "==", moduleId), where("groupId", "==", groupId));
         }
 
-        const snap = await getDocs3(q);
-        const sessions: any[] = [];
-        let submissions = 0;
-        snap.forEach((s: any) => {
-          const data = s.data();
-          const sc = Number((data?.stats && data.stats.submissionsCount) || 0);
-          submissions += sc;
-          sessions.push({ sessionId: s.id, ...data });
-        });
+        const sres = await fetchSessions({ moduleId, offeringId, groupId });
+        const sessions: any[] = sres.map((s) => ({ sessionId: s.id, ...s }));
+        let submissions = sessions.reduce((acc: number, s: any) => acc + (Number((s?.stats && s.stats.submissionsCount) || 0)), 0);
 
         // fetch sessionStats for integrity flags (velocityFlags) for the filtered sessions
         let integrityFlagsTotal = 0;

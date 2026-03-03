@@ -92,21 +92,22 @@ export default function ComplianceExports() {
   };
 
   useEffect(() => {
+    // use existing hooks for modules and offerings
     let mounted = true;
-    const load = async () => {
+    (async () => {
       try {
-        const mods: any[] = [];
-        const mSnap = await getDocs(collection(db, "modules"));
-        mSnap.forEach((d) => mods.push({ id: d.id, ...(d.data() as any) }));
+        const mSnap: any[] = [];
+        const mDocs = await getDocs(collection(db, "modules"));
+        mDocs.forEach((d) => mSnap.push({ id: d.id, ...(d.data() as any) }));
         if (!mounted) return;
-        setModules(mods.map((m) => ({ id: m.id, moduleCode: m.moduleCode || m.id, title: m.title || "" })));
+        setModules(mSnap.map((m) => ({ id: m.id, moduleCode: m.moduleCode || m.id, title: m.title || "" })));
 
-        const offs: any[] = [];
-        const oSnap = await getDocs(collection(db, "offerings"));
-        oSnap.forEach((d) => offs.push({ id: d.id, ...(d.data() as any) }));
+        // reuse useOfferings logic by fetching all offerings once
+        const oSnap: any[] = [];
+        const oDocs = await getDocs(collection(db, "offerings"));
+        oDocs.forEach((d) => oSnap.push({ id: d.id, ...(d.data() as any) }));
         if (!mounted) return;
-        // preserve moduleId so we can filter offerings by selected module(s)
-        const mapped = offs.map((o) => {
+        const mapped = oSnap.map((o) => {
           const parts = [] as string[];
           if (o.academicYear) parts.push(String(o.academicYear));
           if (o.term) parts.push(String(o.term));
@@ -121,7 +122,7 @@ export default function ComplianceExports() {
           const label = parts.length ? parts.join(" ") : o.id;
           return { id: o.id, moduleId: o.moduleId || null, label };
         });
-        setAllOfferings(offs);
+        setAllOfferings(oSnap);
         setOfferings(mapped);
 
         const grs: any[] = [];
@@ -137,8 +138,7 @@ export default function ComplianceExports() {
       } catch (e) {
         console.error("Failed to load filters", e);
       }
-    };
-    load();
+    })();
     return () => { mounted = false; };
   }, []);
 
