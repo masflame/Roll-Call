@@ -322,7 +322,7 @@ export default function Analytics() {
                   <ActionSelect
                     value={selectedOffering ?? 'all'}
                     onChange={(v) => setSelectedOffering(v === 'all' ? null : v)}
-                    options={offerings.map((o) => o.id)}
+                    options={offerings.map((o) => ({ label: o.label || (o.academicYear ? `${o.academicYear}${o.term ? ` • ${o.term}` : ''}` : o.id), value: o.id }))}
                   />
                 </div>
 
@@ -331,7 +331,7 @@ export default function Analytics() {
                   <ActionSelect
                     value={selectedGroup ?? 'all'}
                     onChange={(v) => setSelectedGroup(v === 'all' ? null : v)}
-                    options={groups.map((g) => g.id)}
+                    options={groups.map((g) => ({ label: g.label || g.name || g.id, value: g.id }))}
                   />
                 </div>
               </div>
