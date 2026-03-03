@@ -289,7 +289,7 @@ export default function SharedAccess() {
           case 'active':
             return '#059669';
           case 'pending':
-            return '#f97316';
+            return '#d97706';
           case 'expired':
             return '#374151';
           default:

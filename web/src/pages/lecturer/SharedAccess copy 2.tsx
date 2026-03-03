@@ -669,7 +669,7 @@ export default function SharedAccess() {
                         case 'active':
                           return '#059669'; // green
                         case 'pending':
-                          return '#f97316'; // amber/orange
+                          return '#d97706'; // darker yellow
                         case 'expired':
                           return '#374151'; // gray/dark
                         default:
