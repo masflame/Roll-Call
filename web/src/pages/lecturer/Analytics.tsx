@@ -7,6 +7,7 @@ import { db, functions } from "../../firebase";
 import { auth } from "../../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import * as ModuleAnalyticsModule from "../../components/ModuleAnalyticsView";
+import { useModules } from "../../lib/hooks/useModules";
 const ModuleAnalyticsView = (ModuleAnalyticsModule && (ModuleAnalyticsModule.default || ModuleAnalyticsModule.ModuleAnalyticsView)) || (function MissingModuleView() { return <div className="rounded-2xl border border-stroke-subtle bg-surface p-6 text-sm text-text-muted shadow-subtle">Module analytics component unavailable.</div>; });
 import { Pill, PrimaryButton, SecondaryButton } from "../../components/ui";
 import ActionSelect from "../../components/ui/Selects";
@@ -27,7 +28,6 @@ function SkeletonRow() {
 }
 
 export default function Analytics() {
-  const [modules, setModules] = useState<any[]>([]);
   const [visibleModules, setVisibleModules] = useState<Record<string, boolean>>({});
   const moduleTimers = useRef<number[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -35,91 +35,23 @@ export default function Analytics() {
   const [selectedOffering, setSelectedOffering] = useState<string | null>(null);
   const [groups, setGroups] = useState<any[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  const [loadingModules, setLoadingModules] = useState(true);
+  const { data: modules = [], isLoading: loadingModules } = useModules(auth.currentUser?.uid);
 
   const [recomputing, setRecomputing] = useState(false);
   const [recomputeMessage, setRecomputeMessage] = useState<string | null>(null);
 
-  const loadModules = useCallback(async () => {
-    setLoadingModules(true);
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        setModules([]);
-        return;
-      }
-
-      // Load modules owned by this lecturer, then attach moduleStats if present
-      const modulesRef = collection(db, "modules");
-      const q = queryFn(modulesRef, whereFn("lecturerId", "==", user.uid));
-      const modsSnap = await getDocs(q);
-      const items: any[] = [];
-      const statsPromises: Array<Promise<void>> = [];
-      modsSnap.forEach((d) => {
-        const m = { id: d.id, ...(d.data() as any) };
-        // fetch moduleStats doc (best-effort)
-        const p = getDoc(doc(db, "moduleStats", d.id)).then((s) => {
-          if (s.exists()) {
-            const data = s.data();
-            items.push({ id: d.id, ...data, // prefer moduleStats fields
-              moduleCode: data.moduleCode || m.moduleCode || m.moduleId || m.id,
-              moduleTitle: data.moduleTitle || m.moduleTitle || m.moduleName || null
-            });
-          } else {
-            // fallback to module document
-            items.push(m);
-          }
-        }).catch(() => {
-          items.push(m);
-        });
-        statsPromises.push(p as Promise<void>);
-      });
-      await Promise.all(statsPromises);
-
-      // Sort by “most activity” then name (fall back when sessionsCount missing)
-      items.sort((a, b) => {
-        const as = Number(a.sessionsCount || 0);
-        const bs = Number(b.sessionsCount || 0);
-        if (bs !== as) return bs - as;
-        const an = String(a.moduleCode || a.moduleTitle || a.moduleId || a.id || "");
-        const bn = String(b.moduleCode || b.moduleTitle || b.moduleId || b.id || "");
-        return an.localeCompare(bn);
-      });
-
-      setModules(items);
-      // stagger reveal for left rail modules
-      moduleTimers.current.forEach((t) => clearTimeout(t));
-      moduleTimers.current = [];
-      setVisibleModules({});
-      items.forEach((m, i) => {
-        const t = window.setTimeout(() => setVisibleModules((p) => ({ ...p, [m.id]: true })), i * 60);
-        moduleTimers.current.push(t as unknown as number);
-      });
-      if (items.length && !selected) setSelected(items[0].id);
-    } finally {
-      setLoadingModules(false);
-    }
-  }, [selected]);
-
+  // animate reveal when modules change
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!mounted) return;
-      await loadModules();
-    })();
-    return () => {
-      mounted = false;
-      moduleTimers.current.forEach((t) => clearTimeout(t));
-    };
-  }, [loadModules]);
-
-  // Refresh modules when auth state changes (ensure we show current user's modules)
-  useEffect(() => {
-    const un = onAuthStateChanged(auth, () => {
-      loadModules();
+    moduleTimers.current.forEach((t) => clearTimeout(t));
+    moduleTimers.current = [];
+    setVisibleModules({});
+    modules.forEach((m, i) => {
+      const t = window.setTimeout(() => setVisibleModules((p) => ({ ...p, [m.id]: true })), i * 60);
+      moduleTimers.current.push(t as unknown as number);
     });
-    return () => un();
-  }, [loadModules]);
+    if (modules.length && !selected) setSelected(modules[0].id);
+    return () => moduleTimers.current.forEach((t) => clearTimeout(t));
+  }, [modules]);
 
   // animate right content when selected changes
   const [contentVisible, setContentVisible] = useState(false);
