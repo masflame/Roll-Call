@@ -387,7 +387,7 @@ function LecturerShell() {
         {/* Dashboard Header Block (global except Dashboard and Settings) */}
         {!(location.pathname === "/" || location.pathname.startsWith("/settings")) && (
           <div className="hidden lg:block w-full space-y-6">
-            <Card className="overflow-hidden p-0 bg-white text-gray-900 border border-gray-200 shadow-subtle">
+            <Card rounded={false} className="overflow-hidden p-0 bg-white text-gray-900 border border-gray-200 shadow-subtle">
               <div className="px-4 py-2 sm:px-5 sm:py-2">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
